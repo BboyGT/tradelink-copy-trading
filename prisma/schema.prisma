@@ -533,6 +533,7 @@ model SourcePosition {
   entryPrice          Float
   exitPrice           Float?
   volume              Float
+  productMetadata     String?  // broker-native contract data; required to preserve options/derivative semantics
   stopLoss            Float?
   takeProfit          Float?
   orderType           String

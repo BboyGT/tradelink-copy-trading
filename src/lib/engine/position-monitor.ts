@@ -38,6 +38,7 @@ export interface PositionEvent {
   closeTime?: Date;
   detectedAt: Date;
   detectionLatencyMs: number;
+  productMetadata?: Record<string, unknown>;
 }
 
 export interface ScanResult {
@@ -87,6 +88,7 @@ export function diffPositions(
         openTime: curr.openTime,
         detectedAt: now,
         detectionLatencyMs: 0, // Set by caller with actual fetch duration
+        productMetadata: curr.productMetadata,
       });
     }
   }

@@ -7,6 +7,7 @@ export interface TradeEvent {
   eventId: string;
   providerId: string;
   providerName: string;
+  brokerCode?: string;
   type: "open" | "modify" | "close" | "partial_close";
   instrument: string;
   direction: "BUY" | "SELL";

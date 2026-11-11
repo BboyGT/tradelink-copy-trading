@@ -7,6 +7,9 @@ import type { BrokerCode, IntegrationCapability } from "@/lib/types";
 import { PLATFORM_CAPABILITIES } from "@/lib/types";
 import { TerminalBridgeConnector } from "./terminal-bridge";
 import { CTraderOpenApiConnector, loadCTraderAuth } from "./ctrader-open-api";
+import { DerivOptionsConnector } from "./deriv-options";
+import { db } from "@/lib/db";
+import { decrypt } from "@/lib/encryption";
 
 export interface BrokerAccountInfo {
   accountId: string;
@@ -34,6 +37,8 @@ export interface BrokerPosition {
   commission: number;
   unrealizedProfit: number;
   openTime: Date;
+  /** Broker-native product details required to preserve non-FX contract semantics. */
+  productMetadata?: Record<string, unknown>;
 }
 
 export interface BrokerInstrumentSpec {
@@ -339,7 +344,7 @@ export class MT5Connector extends BaseMockConnector {
 // ============================================================
 
 const CONNECTOR_REGISTRY: Record<BrokerCode, () => BrokerConnector> = {
-  deriv: () => { throw new Error("Deriv production connector is not configured"); },
+  deriv: () => new DerivOptionsConnector(),
   ctrader: () => new CTraderOpenApiConnector(),
   mt4: () => { throw new Error("MT4 requires an account-specific terminal bridge"); },
   mt5: () => { throw new Error("MT5 requires an account-specific terminal bridge"); },
@@ -376,6 +381,16 @@ export async function getAccountConnector(
       return connector;
     }
     connector = new CTraderOpenApiConnector(accountId);
+    const authResult = await connector.authorize({ ...credentials, auth });
+    if (!authResult.success) throw new Error(`Authorization failed: ${authResult.reason}`);
+    activeConnectors.set(key, connector);
+    return connector;
+  }
+  if (brokerCode === "deriv") {
+    const account = await db.brokerAccount.findUnique({ where: { id: accountId }, select: { authRef: true } });
+    if (!account?.authRef) throw new Error("Deriv OAuth credentials are missing; reconnect the account");
+    const auth = JSON.parse(decrypt(account.authRef));
+    connector = new DerivOptionsConnector();
     const authResult = await connector.authorize({ ...credentials, auth });
     if (!authResult.success) throw new Error(`Authorization failed: ${authResult.reason}`);
     activeConnectors.set(key, connector);

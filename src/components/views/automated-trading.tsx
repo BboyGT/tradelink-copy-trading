@@ -877,13 +877,13 @@ function StepSource({
   onSelect: (id: string) => void;
   onConnectBroker: () => void;
 }) {
-  const available = accounts.filter((a) => a.status === "connected" && (["mt4", "mt5"].includes(a.brokerCode) || (a.brokerCode === "ctrader" && a.authMethod === "oauth")));
+  const available = accounts.filter((a) => a.status === "connected" && (["mt4", "mt5"].includes(a.brokerCode) || (["ctrader", "deriv"].includes(a.brokerCode) && a.authMethod === "oauth")));
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Where do you want to copy from?</h2>
         <p className="text-sm text-muted-foreground">
-          Open positions are monitored through the selected broker connection. cTrader can be used as either a source or destination.
+          Open positions are monitored through the selected broker connection. cTrader can be a source or destination; Deriv Options are monitored for reporting only and are not copied.
         </p>
       </div>
 
@@ -893,7 +893,7 @@ function StepSource({
           <div className="space-y-1">
             <p className="text-sm font-medium">Connect a broker first</p>
             <p className="text-xs text-muted-foreground">
-              Link a cTrader account or pair an online MT4/MT5 terminal to use it as a source.
+              Link a cTrader or Deriv account, or pair an online MT4/MT5 terminal to use it as a source.
             </p>
           </div>
           <Button size="sm" onClick={onConnectBroker}>
@@ -951,7 +951,7 @@ function StepDestination({
           <div className="space-y-1">
             <p className="text-sm font-medium">No other broker accounts</p>
             <p className="text-xs text-muted-foreground">
-              Link an online MT4/MT5 terminal or cTrader OAuth account to use as the destination.
+              Link an online MT4/MT5 terminal or cTrader OAuth account to use as the destination. Deriv Options are not supported as a destination.
             </p>
           </div>
           <Button size="sm" onClick={onConnectBroker}>

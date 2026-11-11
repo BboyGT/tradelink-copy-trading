@@ -58,7 +58,7 @@ async function closeOnce(idempotencyKey: string, sourcePositionId: string, execu
 export async function GET(req: NextRequest) {
   if (!hasServiceBearer(req, "SCANNER_WORKER_TOKEN")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const accounts = await db.brokerAccount.findMany({
-    where: { status: "connected", OR: [{ terminalBridge: { is: { status: "connected" } } }, { brokerCode: "ctrader", authMethod: "oauth" }], sourceReplicationConfigs: { some: { status: "active" } } },
+    where: { status: "connected", OR: [{ terminalBridge: { is: { status: "connected" } } }, { brokerCode: { in: ["ctrader", "deriv"] }, authMethod: "oauth" }], sourceReplicationConfigs: { some: { status: "active" } } },
     select: { id: true }, orderBy: { lastSyncedAt: "asc" }, take: 100,
   });
   return NextResponse.json({ accountIds: accounts.map((account) => account.id) }, { headers: { "cache-control": "no-store" } });
@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
               eventId: `${account.id}:${config.id}:${event.externalPositionId}:${event.detectedAt.getTime()}:${event.type}`,
               providerId: config.provider?.id ?? account.id,
               providerName: sourceName,
+              brokerCode: account.brokerCode,
               type: event.type,
               instrument: event.instrument,
               direction: event.direction,
@@ -147,6 +148,7 @@ export async function POST(req: NextRequest) {
               takeProfit: event.takeProfit,
               timestamp: event.detectedAt.toISOString(),
               detectionLatencyMs,
+              productMetadata: event.productMetadata,
             };
             void publishUserTradeEvent(user.id, streamEvent);
           }
@@ -154,6 +156,21 @@ export async function POST(req: NextRequest) {
           if (event.type === "open") {
             for (const config of account.sourceReplicationConfigs) {
               const sourceName = config.provider?.name ?? account.accountLabel;
+              if (account.brokerCode === "deriv") {
+                const externalTradeId = `deriv:${account.id}:${event.externalPositionId}:${event.openTime.getTime()}`;
+                await db.sourcePosition.upsert({
+                  where: { replicationConfigId_externalTradeId: { replicationConfigId: config.id, externalTradeId } },
+                  create: { replicationConfigId: config.id, externalTradeId, externalPositionId: event.externalPositionId,
+                    instrument: event.instrument, direction: event.direction, entryPrice: event.entryPrice, volume: event.volume,
+                    orderType: "options_contract", openTime: event.openTime, state: "open",
+                    productMetadata: JSON.stringify(event.productMetadata ?? {}), detectionLatencyMs },
+                  update: { state: "open", volume: event.volume, productMetadata: JSON.stringify(event.productMetadata ?? {}) },
+                });
+                // Contract stakes and expiries cannot be mapped by the FX/CFD lot sizing engine.
+                // Keep the source position and its product metadata, but do not place an unsafe order.
+                totalErrors++;
+                continue;
+              }
               // Approval and notification modes must never place orders here.
               if (config.executionMode !== "auto") continue;
               if (!config.brokerAccount.isDemo && !config.brokerAccount.isLiveAuthorized) {

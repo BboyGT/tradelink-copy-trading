@@ -115,6 +115,7 @@ async function persistAccount(input: {
     equity: Number.isFinite(input.equity) ? input.equity! : (Number.isFinite(input.balance) ? input.balance! : 0),
     isDemo: input.isDemo, status: "connected", authMethod: "oauth", authRef,
     externalAccountId: input.accountId,
+    tokenExpiresAt: typeof input.auth.expiresAt === "number" ? new Date(input.auth.expiresAt) : null,
   };
   const existing = await db.brokerAccount.findFirst({ where: { userId: input.userId, brokerCode: input.provider, externalAccountId: input.accountId } });
   if (existing) return db.brokerAccount.update({ where: { id: existing.id }, data });
@@ -231,7 +232,7 @@ export async function handleProviderCallback(request: NextRequest, provider: OAu
         if (!id) continue;
         await persistAccount({ userId: context.userId, provider, accountId: id, label: `Deriv ${id}`,
           currency: String(account.currency ?? "USD"), balance: Number(account.balance ?? 0),
-          isDemo: account.account_type !== "real", auth: { accessToken, expiresAt: Date.now() + Number(token.expires_in ?? 0) * 1000, accountId: id } });
+          isDemo: account.account_type !== "real", auth: { accessToken, expiresAt: Date.now() + Number(token.expires_in ?? 0) * 1000, accountId: id, isDemo: account.account_type !== "real" } });
         linked++;
       }
     } else if (provider === "ctrader") {

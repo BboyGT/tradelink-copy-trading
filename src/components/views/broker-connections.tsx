@@ -135,13 +135,13 @@ const RETAIL_BROKERS: RetailBroker[] = [
     code: "deriv",
     name: "Deriv",
     color: "#1e88e5",
-    blurb: "Official OAuth account linking. Trade monitoring and copying are not yet available for Deriv contracts.",
+    blurb: "Official OAuth account linking and Options balance/contract monitoring. Deriv contracts are not copied to FX/CFD accounts.",
   },
   {
     code: "ctrader",
     name: "cTrader",
     color: "#00897b",
-    blurb: "Spotware OAuth and Open API account linking. cTrader trades can be copied to MT4/MT5; cTrader is not yet a destination.",
+    blurb: "Spotware OAuth and Open API account linking. cTrader trades can be copied between cTrader and MT4/MT5 accounts.",
   },
   {
     code: "mt4",
@@ -1776,7 +1776,7 @@ function PositionsTable({
           <tr className="border-b border-border text-[10px] uppercase text-muted-foreground">
             <th className="text-left font-medium px-3 py-2">Instrument</th>
             <th className="text-left font-medium px-2 py-2">Dir</th>
-            <th className="text-right font-medium px-2 py-2">Volume</th>
+            <th className="text-right font-medium px-2 py-2">{account.brokerCode === "deriv" ? "Stake" : "Volume"}</th>
             <th className="text-right font-medium px-2 py-2">Entry</th>
             <th className="text-right font-medium px-2 py-2">Cur.</th>
             <th className="text-right font-medium px-2 py-2">uP/L</th>
@@ -1795,7 +1795,7 @@ function PositionsTable({
                     {p.direction}
                   </span>
                 </td>
-                <td className="px-2 py-2 text-right tnum">{formatNumber(p.volume)}</td>
+                <td className="px-2 py-2 text-right tnum">{formatNumber(p.volume)}{account.brokerCode === "deriv" ? ` ${account.currency}` : ""}</td>
                 <td className="px-2 py-2 text-right tnum">{formatNumber(p.entryPrice, 5)}</td>
                 <td className="px-2 py-2 text-right tnum">
                   {p.currentPrice !== null && p.currentPrice !== undefined ? formatNumber(p.currentPrice, 5) : "—"}

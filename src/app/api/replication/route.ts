@@ -72,8 +72,9 @@ export async function POST(req: NextRequest) {
     const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected" } });
     const sourceIsTerminal = sourceAccount && ["mt4", "mt5"].includes(sourceAccount.brokerCode);
     const sourceIsCTrader = sourceAccount?.brokerCode === "ctrader" && sourceAccount.authMethod === "oauth";
-    if (!sourceAccount || (!sourceIsTerminal && !sourceIsCTrader)) {
-      return NextResponse.json({ error: "Choose a connected MT4/MT5 terminal or cTrader OAuth account as the source" }, { status: 400 });
+    const sourceIsDeriv = sourceAccount?.brokerCode === "deriv" && sourceAccount.authMethod === "oauth";
+    if (!sourceAccount || (!sourceIsTerminal && !sourceIsCTrader && !sourceIsDeriv)) {
+      return NextResponse.json({ error: "Choose a connected MT4/MT5 terminal, cTrader OAuth, or Deriv OAuth account as the source" }, { status: 400 });
     }
     if (sourceAccount.id === account.id) return NextResponse.json({ error: "Source and destination accounts must be different" }, { status: 400 });
     if (sourceIsTerminal) {
