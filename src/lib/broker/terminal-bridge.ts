@@ -68,12 +68,34 @@ export class TerminalBridgeConnector implements BrokerConnector {
     return { ...spec, tradingHours: spec.tradingHours ?? undefined, marginRequired: spec.marginRequired ?? undefined, executionModel: spec.executionModel as BrokerInstrumentSpec["executionModel"] };
   }
 
-  private async execute(commandType: "open" | "close" | "modify", payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async execute(commandType: "open" | "close" | "modify", payload: Record<string, unknown>, idempotencyKey = randomUUID()): Promise<Record<string, unknown>> {
     const bridge = await this.getFreshBridge();
-    const command = await db.terminalBridgeCommand.create({ data: {
-      bridgeId: bridge.id, idempotencyKey: randomUUID(), commandType, payload: JSON.stringify(payload),
-      expiresAt: new Date(Date.now() + COMMAND_TTL_MS),
-    } });
+    let command = await db.terminalBridgeCommand.findUnique({ where: { idempotencyKey } });
+    if (command) {
+      if (command.bridgeId !== bridge.id || command.commandType !== commandType || command.payload !== JSON.stringify(payload)) {
+        throw new Error("Idempotency key was already used for a different terminal command");
+      }
+    } else {
+      try {
+        command = await db.terminalBridgeCommand.create({ data: {
+          bridgeId: bridge.id, idempotencyKey, commandType, payload: JSON.stringify(payload),
+          expiresAt: new Date(Date.now() + COMMAND_TTL_MS),
+        } });
+      } catch (error: any) {
+        if (error?.code !== "P2002") throw error;
+        command = await db.terminalBridgeCommand.findUnique({ where: { idempotencyKey } });
+        if (!command || command.bridgeId !== bridge.id || command.commandType !== commandType || command.payload !== JSON.stringify(payload)) {
+          throw new Error("Conflicting terminal command used the same idempotency key");
+        }
+      }
+    }
+    if (!command) throw new Error("Terminal command could not be created");
+    if (command.status === "completed" || command.status === "rejected") {
+      const result = command.result ? JSON.parse(command.result) as Record<string, unknown> : {};
+      if (command.status === "rejected") throw new Error(String(result.message ?? "Terminal rejected the command"));
+      return result;
+    }
+    if (command.status === "expired") throw new Error("Terminal command outcome is unknown because it expired; reconcile the account before retrying");
     const deadline = Date.now() + EXECUTION_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const current = await db.terminalBridgeCommand.findUnique({ where: { id: command.id } });
@@ -85,31 +107,31 @@ export class TerminalBridgeConnector implements BrokerConnector {
       if (current?.status === "expired") throw new Error("Terminal command expired before execution");
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
-    throw new Error("Terminal did not acknowledge the order in time; check the account before retrying");
+    throw new Error("Terminal did not acknowledge the command in time; its outcome is unknown and the same command key must be reused after reconciliation");
   }
 
   async placeOrder(req: OrderRequest): Promise<OrderResult> {
     if (req.orderType !== "market") return { success: false, rejectionReason: "The terminal bridge currently supports market orders only" };
     try {
-      const result = await this.execute("open", { instrument: req.instrument, direction: req.direction, volume: req.volume, stopLoss: req.stopLoss ?? 0, takeProfit: req.takeProfit ?? 0 });
+      const result = await this.execute("open", { instrument: req.instrument, direction: req.direction, volume: req.volume, stopLoss: req.stopLoss ?? 0, takeProfit: req.takeProfit ?? 0 }, req.idempotencyKey);
       return { success: true, orderId: String(result.orderId ?? ""), positionId: String(result.positionId ?? result.orderId ?? ""), executedPrice: Number(result.price), executedVolume: Number(result.volume ?? req.volume) };
     } catch (error) {
       return { success: false, rejectionReason: error instanceof Error ? error.message : "Terminal execution failed" };
     }
   }
 
-  async modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }): Promise<ModifyResult> {
+  async modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }, idempotencyKey?: string): Promise<ModifyResult> {
     try {
-      await this.execute("modify", { positionId, stopLoss: updates.stopLoss ?? 0, takeProfit: updates.takeProfit ?? 0 });
+      await this.execute("modify", { positionId, stopLoss: updates.stopLoss ?? 0, takeProfit: updates.takeProfit ?? 0 }, idempotencyKey);
       return { success: true };
     } catch (error) {
       return { success: false, rejectionReason: error instanceof Error ? error.message : "Terminal modification failed" };
     }
   }
 
-  async closePosition(positionId: string, volume?: number): Promise<CloseResult> {
+  async closePosition(positionId: string, volume?: number, idempotencyKey?: string): Promise<CloseResult> {
     try {
-      const result = await this.execute("close", { positionId, volume: volume ?? 0 });
+      const result = await this.execute("close", { positionId, volume: volume ?? 0 }, idempotencyKey);
       return { success: true, closedVolume: Number(result.volume ?? volume ?? 0), closedPrice: Number(result.price), realizedProfit: Number(result.profit ?? 0) };
     } catch (error) {
       return { success: false, rejectionReason: error instanceof Error ? error.message : "Terminal close failed" };

@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               startingBalance: config.brokerAccount.balance,
               currency: config.brokerAccount.currency,
             });
-            const result = await connector.closePosition(pos.externalPositionId);
+            const result = await connector.closePosition(pos.externalPositionId, undefined, `copy-close-all:${config.id}:${pos.id}`);
             if (result.success) {
               await db.destinationPosition.update({
                 where: { id: pos.id },

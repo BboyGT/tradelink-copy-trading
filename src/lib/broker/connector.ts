@@ -50,6 +50,8 @@ export interface BrokerInstrumentSpec {
 }
 
 export interface OrderRequest {
+  /** Stable source-event identity used to prevent duplicate terminal orders on retry. */
+  idempotencyKey?: string;
   instrument: string;
   direction: "BUY" | "SELL";
   volume: number;
@@ -98,8 +100,8 @@ export interface BrokerConnector {
   getInstrumentSpec(symbol: string): Promise<BrokerInstrumentSpec | null>;
 
   placeOrder(req: OrderRequest): Promise<OrderResult>;
-  modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }): Promise<ModifyResult>;
-  closePosition(positionId: string, volume?: number): Promise<CloseResult>;
+  modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }, idempotencyKey?: string): Promise<ModifyResult>;
+  closePosition(positionId: string, volume?: number, idempotencyKey?: string): Promise<CloseResult>;
 
   capabilities(): IntegrationCapability;
 }

@@ -11,6 +11,7 @@
 // positions in sync. This is the "copied account monitoring" approach.
 
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { db } from "@/lib/db";
 import { requireUser, audit } from "@/lib/auth";
 import { getAccountConnector } from "@/lib/broker/connector";
@@ -162,6 +163,7 @@ export async function POST(req: NextRequest) {
                   { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency },
                 );
                 const orderResult = await destConnector.placeOrder({
+                  idempotencyKey: `copy-open:${config.id}:${sourcePosition.id}`,
                   instrument: event.instrument, direction: event.direction,
                   volume: mirrorVolume, orderType: "market",
                   stopLoss: config.replicateStopLoss ? event.stopLoss : undefined,
@@ -208,7 +210,7 @@ export async function POST(req: NextRequest) {
                 if (!destAccount) { allDestinationsClosed = false; continue; }
                 if (!destPos.externalPositionId) throw new Error("Destination position has no terminal ticket");
                 const destConnector = await getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency });
-                const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "");
+                const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", undefined, `copy-close:${config.id}:${sourcePos.id}:${destPos.id}`);
                 if (!closeResult.success) throw new Error(closeResult.rejectionReason ?? "Terminal rejected close");
                 await db.destinationPosition.update({ where: { id: destPos.id }, data: { state: "closed", closeTime: new Date(), exitPrice: closeResult.closedPrice, grossProfit: closeResult.realizedProfit, netProfit: closeResult.realizedProfit } });
                 await sendNotification(user.id, {
@@ -237,7 +239,8 @@ export async function POST(req: NextRequest) {
                   if (!destAccount) { allDestinationsUpdated = false; continue; }
                   if (!destPos.externalPositionId) throw new Error("Destination position has no terminal ticket");
                   const destConnector = await getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency });
-                  const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", closeVolume);
+                  const closeKey = `copy-partial:${config.id}:${sourcePos.id}:${destPos.id}:${event.volume}`;
+                  const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", closeVolume, closeKey);
                   if (!closeResult.success) throw new Error(closeResult.rejectionReason ?? "Terminal rejected partial close");
                   await db.destinationPosition.update({ where: { id: destPos.id }, data: { volume: destPos.volume - closeVolume } });
                 } catch (e: any) { totalErrors++; allDestinationsUpdated = false; console.error("[mirror] destination partial close failed", e.message); }
@@ -261,7 +264,8 @@ export async function POST(req: NextRequest) {
                 const destConnector = await getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency });
                 const stopLoss = config.replicateStopLoss ? event.stopLoss ?? 0 : destPos.stopLoss ?? 0;
                 const takeProfit = config.replicateTakeProfit ? event.takeProfit ?? 0 : destPos.takeProfit ?? 0;
-                const modifyResult = await destConnector.modifyPosition(destPos.externalPositionId, { stopLoss, takeProfit });
+                const modifyHash = createHash("sha256").update(JSON.stringify([stopLoss, takeProfit])).digest("hex").slice(0, 24);
+                const modifyResult = await destConnector.modifyPosition(destPos.externalPositionId, { stopLoss, takeProfit }, `copy-modify:${config.id}:${sourcePos.id}:${destPos.id}:${modifyHash}`);
                 if (!modifyResult.success) throw new Error(modifyResult.rejectionReason ?? "Terminal rejected modification");
                 await db.destinationPosition.update({ where: { id: destPos.id }, data: { stopLoss: config.replicateStopLoss ? event.stopLoss ?? null : destPos.stopLoss, takeProfit: config.replicateTakeProfit ? event.takeProfit ?? null : destPos.takeProfit } });
               } catch (e: any) { totalErrors++; allDestinationsUpdated = false; console.error("[mirror] destination modification failed", e.message); }
