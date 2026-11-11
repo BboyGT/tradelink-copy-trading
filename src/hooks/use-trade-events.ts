@@ -35,7 +35,9 @@ export function useTradeEvents(userId: string | null | undefined, _liveMode?: bo
         const data = await response.json();
         if (!response.ok || !data.token) throw new Error("Event authorization failed");
         if (!active) return;
-        socket = io("/?XTransformPort=3003", {
+        const eventsUrl = process.env.NEXT_PUBLIC_EVENTS_SERVICE_URL || "/?XTransformPort=3003";
+        socket = io(eventsUrl, {
+          path: "/socket.io",
           transports: ["websocket"],
           auth: { token: data.token },
         });

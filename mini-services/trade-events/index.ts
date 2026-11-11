@@ -65,7 +65,7 @@ const io = new Server(httpServer, {
     origin: allowedOrigins.length ? allowedOrigins : false,
     methods: ["GET", "POST"],
   },
-  path: "/",
+  path: "/socket.io",
 });
 
 io.use((socket, next) => {

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack && node scripts/copy-standalone-assets.mjs",
-    "start": "node -r ./scripts/load-env.cjs .next-build/standalone/server.js",
+    "start": "node scripts/start-standalone.mjs",
     "dev:stack": "node -r ./scripts/load-env.cjs scripts/dev-stack.mjs",
     "dev:worker": "node -r ./scripts/load-env.cjs --import=tsx --watch mini-services/copy-worker/index.ts",
     "worker": "node -r ./scripts/load-env.cjs --import=tsx mini-services/copy-worker/index.ts",
