@@ -212,7 +212,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
       return {
         positionId: String(position.positionId), instrument,
         direction: Number(trade.tradeSide) === 2 ? "SELL" as const : "BUY" as const,
-        volume, entryPrice, currentPrice: entryPrice,
+        volume, entryPrice,
         stopLoss: position.stopLoss == null ? undefined : Number(position.stopLoss),
         takeProfit: position.takeProfit == null ? undefined : Number(position.takeProfit),
         swap: amount(position.swap, position.moneyDigits), commission: amount(position.commission, position.moneyDigits),

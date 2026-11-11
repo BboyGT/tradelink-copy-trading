@@ -27,7 +27,7 @@ export interface BrokerPosition {
   direction: "BUY" | "SELL";
   volume: number;
   entryPrice: number;
-  currentPrice: number;
+  currentPrice?: number;
   stopLoss?: number;
   takeProfit?: number;
   swap: number;
