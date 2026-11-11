@@ -57,6 +57,9 @@ server.log
 /mini-services-dist/
 /db/custom.db
 /db/*.db
+/db/*.db-journal
+/db/*.db-wal
+/db/*.db-shm
 /db/*.sqlite*
 /tool-results/
 /upload/
