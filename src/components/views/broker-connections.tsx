@@ -135,7 +135,7 @@ const RETAIL_BROKERS: RetailBroker[] = [
     code: "deriv",
     name: "Deriv",
     color: "#1e88e5",
-    blurb: "Official OAuth account linking and Options balance/contract monitoring. Deriv contracts are not copied to FX/CFD accounts.",
+    blurb: "Official OAuth, Options monitoring, and constrained CALL/PUT copying between matching-currency Deriv accounts.",
   },
   {
     code: "ctrader",
@@ -159,7 +159,7 @@ const RETAIL_BROKERS: RetailBroker[] = [
     code: "fxcm",
     name: "FXCM",
     color: "#d32f2f",
-    blurb: "Requires an FXCM-approved FCLite integration. Account linking and trade copying are not yet available.",
+    blurb: "Connect an FXCM MT4 account through the terminal bridge. Trading Station requires an approved FCLite integration.",
   },
 ];
 
@@ -792,6 +792,26 @@ function ConnectRetailDialog({
     }
   }
 
+  async function handleFxcmMt4Bridge() {
+    if (broker?.code !== "fxcm") return;
+    setOauthChecking(true);
+    try {
+      const response = await fetch("/api/brokers/bridge/enroll", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brokerCode: "mt4", accountLabel: effectiveLabel }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.bridgeSecret) throw new Error(data.error ?? "FXCM MT4 terminal pairing could not start.");
+      setBridgeEnrollment({ accountId: data.account.id, secret: data.bridgeSecret, brokerCode: "mt4" });
+      onBridgeEnrolled();
+      toast({ title: "FXCM MT4 pairing ready", description: "Use the FXCM MT4 terminal to complete the bridge setup." });
+    } catch (error) {
+      toast({ title: "FXCM MT4 unavailable", description: error instanceof Error ? error.message : "Terminal pairing could not start.", variant: "destructive" });
+    } finally {
+      setOauthChecking(false);
+    }
+  }
+
   const useManual = advancedOpen && (
     false
   );
@@ -839,7 +859,7 @@ function ConnectRetailDialog({
             {brokerCode === "mt4" || brokerCode === "mt5"
               ? "MetaTrader accounts must pair through the terminal bridge. Do not enter your trading password in this website."
               : brokerCode === "fxcm"
-                ? "FXCM linking requires the official OAuth application credentials and token refresh service to be configured by the deployment."
+                ? "Trading Station accounts need an approved FXCM FCLite/OAuth integration. If your FXCM account is on MT4, connect it through the FXCM MT4 terminal bridge below."
                 : "This provider requires its official OAuth application and a completed account callback before an account can be linked."}
           </div>
 
@@ -1000,6 +1020,11 @@ function ConnectRetailDialog({
             )}
             {bridgeEnrollment ? "Bridge setup created" : `Continue to ${brokerName}`}
           </Button>
+          {brokerCode === "fxcm" && !bridgeEnrollment && (
+            <Button variant="outline" onClick={handleFxcmMt4Bridge} disabled={pending || oauthChecking}>
+              Connect FXCM MT4 terminal
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

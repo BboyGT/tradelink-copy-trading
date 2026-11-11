@@ -108,7 +108,15 @@ export async function POST(req: NextRequest) {
           },
         );
 
-        const [sourceInfo, livePositions] = await Promise.all([connector.getAccountInfo(), connector.getOpenPositions()]);
+        let sourceInfo: Awaited<ReturnType<typeof connector.getAccountInfo>>;
+        let livePositions: Awaited<ReturnType<typeof connector.getOpenPositions>>;
+        if (connector.getAccountSnapshot) {
+          const snapshot = await connector.getAccountSnapshot();
+          sourceInfo = snapshot.accountInfo;
+          livePositions = snapshot.positions;
+        } else {
+          [sourceInfo, livePositions] = await Promise.all([connector.getAccountInfo(), connector.getOpenPositions()]);
+        }
         await db.brokerAccount.update({ where: { id: account.id }, data: {
           currency: sourceInfo.currency, balance: sourceInfo.balance, equity: sourceInfo.equity,
           margin: sourceInfo.margin, freeMargin: sourceInfo.freeMargin, leverage: sourceInfo.leverage,
@@ -158,7 +166,7 @@ export async function POST(req: NextRequest) {
               const sourceName = config.provider?.name ?? account.accountLabel;
               if (account.brokerCode === "deriv") {
                 const externalTradeId = `deriv:${account.id}:${event.externalPositionId}:${event.openTime.getTime()}`;
-                await db.sourcePosition.upsert({
+                const sourcePosition = await db.sourcePosition.upsert({
                   where: { replicationConfigId_externalTradeId: { replicationConfigId: config.id, externalTradeId } },
                   create: { replicationConfigId: config.id, externalTradeId, externalPositionId: event.externalPositionId,
                     instrument: event.instrument, direction: event.direction, entryPrice: event.entryPrice, volume: event.volume,
@@ -166,9 +174,76 @@ export async function POST(req: NextRequest) {
                     productMetadata: JSON.stringify(event.productMetadata ?? {}), detectionLatencyMs },
                   update: { state: "open", volume: event.volume, productMetadata: JSON.stringify(event.productMetadata ?? {}) },
                 });
-                // Contract stakes and expiries cannot be mapped by the FX/CFD lot sizing engine.
-                // Keep the source position and its product metadata, but do not place an unsafe order.
-                totalErrors++;
+                const destAccount = config.brokerAccount;
+                if (config.executionMode !== "auto") continue;
+                if (destAccount.brokerCode !== "deriv") { totalErrors++; continue; }
+                if (destAccount.status !== "connected" || (!destAccount.isDemo && !destAccount.isLiveAuthorized)) { totalErrors++; continue; }
+                const product = event.productMetadata ?? {};
+                const sourceCurrency = String(product.currency ?? "").toUpperCase();
+                if (!sourceCurrency || sourceCurrency !== destAccount.currency.toUpperCase()) { totalErrors++; continue; }
+                const priorDestination = await db.destinationPosition.findFirst({ where: { sourcePositionId: sourcePosition.id, brokerAccountId: destAccount.id } });
+                if (priorDestination) continue;
+
+                let stake = event.volume;
+                if (config.sizingMode === "fixed_lot") stake = config.fixedLotSize ?? 0;
+                else if (config.sizingMode === "fixed_multiplier") stake *= config.equityMultiplier;
+                else if (config.sizingMode === "risk_based") stake = destAccount.equity * (config.riskPerTradePct ?? 1) / 100;
+                else stake = sourceInfo.equity > 0 ? stake * (destAccount.equity / sourceInfo.equity) * config.equityMultiplier : 0;
+                if (config.maxLotSize != null) stake = Math.min(stake, config.maxLotSize);
+                stake = Math.floor(stake * 100 + 1e-8) / 100;
+                if (!Number.isFinite(stake) || stake <= 0 || (config.minLotSize != null && stake < config.minLotSize)) { totalErrors++; continue; }
+
+                const openKey = `deriv-copy-open:${config.id}:${sourcePosition.id}`;
+                let ledger;
+                try {
+                  ledger = await db.executionEvent.create({ data: { idempotencyKey: openKey, sourcePositionId: sourcePosition.id,
+                    eventType: "open", status: "pending", payload: JSON.stringify({ stake, currency: sourceCurrency }) } });
+                } catch (error: any) {
+                  if (error?.code !== "P2002") throw error;
+                  totalErrors++;
+                  continue;
+                }
+                try {
+                  const destConnector = await getAccountConnector("deriv", destAccount.id, {
+                    accountId: destAccount.externalAccountId ?? undefined, currency: destAccount.currency,
+                  });
+                  const orderResult = await destConnector.placeOrder({
+                    idempotencyKey: openKey, instrument: event.instrument, direction: event.direction,
+                    volume: stake, orderType: "market", productMetadata: product,
+                  });
+                  await db.executionEvent.update({ where: { id: ledger.id }, data: {
+                    status: orderResult.success ? "processed" : "failed", processedAt: orderResult.success ? new Date() : null,
+                    payload: JSON.stringify({ stake, result: orderResult }),
+                  } });
+                  if (!orderResult.success || !orderResult.positionId) {
+                    totalErrors++;
+                    await sendNotification(user.id, { type: "replication_failed", title: "DERIV COPY FAILED",
+                      body: `${sourceName} | ${event.instrument} ${String(product.contractType ?? "Options")} | ${orderResult.rejectionReason ?? "Deriv rejected the contract"}`,
+                      severity: "error" });
+                    continue;
+                  }
+                  await db.destinationPosition.create({ data: {
+                    brokerAccountId: destAccount.id, sourcePositionId: sourcePosition.id,
+                    externalTradeId: orderResult.orderId, externalPositionId: orderResult.positionId,
+                    instrument: event.instrument, direction: event.direction,
+                    entryPrice: orderResult.executedPrice ?? event.entryPrice, volume: orderResult.executedVolume ?? stake,
+                    orderType: "options_contract", openTime: new Date(), state: "open",
+                    executionDelayMs: orderResult.executionDelayMs,
+                  } });
+                  await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "open" } });
+                  totalMirrored++;
+                  await sendNotification(user.id, { type: "trade_opened", title: "DERIV CONTRACT COPIED",
+                    body: `${event.instrument} ${String(product.contractType)} | Stake: ${orderResult.executedVolume ?? stake} ${sourceCurrency} | Source expiry mirrored with remaining duration` ,
+                    severity: "success" });
+                } catch (error) {
+                  await db.executionEvent.update({ where: { id: ledger.id }, data: {
+                    status: "failed", payload: JSON.stringify({ stake, ambiguous: true, message: error instanceof Error ? error.message.slice(0, 240) : "Deriv order failed" }),
+                  } }).catch(() => undefined);
+                  totalErrors++;
+                  await sendNotification(user.id, { type: "replication_failed", title: "DERIV COPY NEEDS RECONCILIATION",
+                    body: `${event.instrument} | The purchase result is uncertain. Check both Deriv accounts before retrying.`, severity: "error" });
+                  console.error("[mirror:deriv] order result needs reconciliation", error instanceof Error ? error.message : "unknown error");
+                }
                 continue;
               }
               // Approval and notification modes must never place orders here.
@@ -386,6 +461,9 @@ export async function POST(req: NextRequest) {
           console.log(`[scan] ${account.accountLabel}: ${summary.opens} opens, ${summary.closes} closes, ${summary.partialCloses} partials, ${summary.modifications} mods`);
         }
       } catch (e: any) {
+        if (account.brokerCode === "deriv" && /expired|http 401/i.test(String(e?.message ?? ""))) {
+          await db.brokerAccount.update({ where: { id: account.id }, data: { status: "expired" } }).catch(() => undefined);
+        }
         console.error(`[scan] error on account ${account.id}:`, e.message);
       }
     }

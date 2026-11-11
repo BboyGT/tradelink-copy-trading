@@ -65,6 +65,8 @@ export interface OrderRequest {
   price?: number;
   stopLoss?: number;
   takeProfit?: number;
+  /** Broker-native product configuration for products that are not FX/CFD lots. */
+  productMetadata?: Record<string, unknown>;
 }
 
 export interface OrderResult {
@@ -104,6 +106,8 @@ export interface BrokerConnector {
   getAccountInfo(): Promise<BrokerAccountInfo>;
   getOpenPositions(): Promise<BrokerPosition[]>;
   getInstrumentSpec(symbol: string): Promise<BrokerInstrumentSpec | null>;
+  /** Optional combined read for brokers whose sessions are expensive or short-lived. */
+  getAccountSnapshot?(): Promise<{ accountInfo: BrokerAccountInfo; positions: BrokerPosition[] }>;
 
   placeOrder(req: OrderRequest): Promise<OrderResult>;
   modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }, idempotencyKey?: string): Promise<ModifyResult>;

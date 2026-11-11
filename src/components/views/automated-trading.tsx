@@ -794,7 +794,7 @@ function CreateReplicationWizard({
             <StepSource
               accounts={brokerAccounts}
               selectedId={state.sourceAccountId}
-              onSelect={(id) => setState((s) => ({ ...s, sourceAccountId: id }))}
+              onSelect={(id) => setState((s) => ({ ...s, sourceAccountId: id, destinationAccountId: "" }))}
               onConnectBroker={onConnectBroker}
             />
           )}
@@ -802,6 +802,7 @@ function CreateReplicationWizard({
             <StepDestination
               accounts={brokerAccounts}
               excludeId={state.sourceAccountId}
+              sourceBrokerCode={sourceAccount?.brokerCode ?? ""}
               selectedId={state.destinationAccountId}
               onSelect={(id) =>
                 setState((s) => ({ ...s, destinationAccountId: id }))
@@ -815,6 +816,7 @@ function CreateReplicationWizard({
               equityMultiplier={state.equityMultiplier}
               fixedLotSize={state.fixedLotSize}
               riskPerTradePct={state.riskPerTradePct}
+              derivOptions={sourceAccount?.brokerCode === "deriv" && destinationAccount?.brokerCode === "deriv"}
               onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
             />
           )}
@@ -825,6 +827,7 @@ function CreateReplicationWizard({
               replicateTakeProfit={state.replicateTakeProfit}
               replicatePartialClosures={state.replicatePartialClosures}
               destination={destinationAccount}
+              derivOptions={sourceAccount?.brokerCode === "deriv" && destinationAccount?.brokerCode === "deriv"}
               onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
             />
           )}
@@ -883,7 +886,7 @@ function StepSource({
       <div>
         <h2 className="text-lg font-semibold">Where do you want to copy from?</h2>
         <p className="text-sm text-muted-foreground">
-          Open positions are monitored through the selected broker connection. cTrader can be a source or destination; Deriv Options are monitored for reporting only and are not copied.
+          Open positions are monitored through the selected broker connection. Deriv Options copying is supported only between Deriv accounts.
         </p>
       </div>
 
@@ -924,17 +927,21 @@ function StepSource({
 function StepDestination({
   accounts,
   excludeId,
+  sourceBrokerCode,
   selectedId,
   onSelect,
   onConnectBroker,
 }: {
   accounts: BrokerAccount[];
   excludeId: string;
+  sourceBrokerCode: string;
   selectedId: string;
   onSelect: (id: string) => void;
   onConnectBroker: () => void;
 }) {
-  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && (["mt4", "mt5"].includes(a.brokerCode) || (a.brokerCode === "ctrader" && a.authMethod === "oauth")));
+  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && (sourceBrokerCode === "deriv"
+    ? a.brokerCode === "deriv" && a.authMethod === "oauth"
+    : ["mt4", "mt5"].includes(a.brokerCode) || (a.brokerCode === "ctrader" && a.authMethod === "oauth")));
 
   return (
     <div className="space-y-4">
@@ -951,7 +958,7 @@ function StepDestination({
           <div className="space-y-1">
             <p className="text-sm font-medium">No other broker accounts</p>
             <p className="text-xs text-muted-foreground">
-              Link an online MT4/MT5 terminal or cTrader OAuth account to use as the destination. Deriv Options are not supported as a destination.
+              {sourceBrokerCode === "deriv" ? "Link a second Deriv OAuth account with the same currency for supported Options copying." : "Link an online MT4/MT5 terminal or cTrader OAuth account for forex/CFD copying."}
             </p>
           </div>
           <Button size="sm" onClick={onConnectBroker}>
@@ -1128,12 +1135,14 @@ function StepSizing({
   equityMultiplier,
   fixedLotSize,
   riskPerTradePct,
+  derivOptions,
   onChange,
 }: {
   mode: SizingMode;
   equityMultiplier: number;
   fixedLotSize: number;
   riskPerTradePct: number;
+  derivOptions: boolean;
   onChange: (
     patch: Partial<Pick<WizardState, "sizingMode" | "equityMultiplier" | "fixedLotSize" | "riskPerTradePct">>,
   ) => void;
@@ -1143,14 +1152,20 @@ function StepSizing({
       <div>
         <h2 className="text-lg font-semibold">How should trades be sized?</h2>
         <p className="text-sm text-muted-foreground">
-          How much volume should each copied trade have?
+          {derivOptions ? "How much stake should each copied contract use?" : "How much volume should each copied trade have?"}
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {SIZING_OPTIONS.map((opt) => {
+          {SIZING_OPTIONS.map((opt) => {
           const selected = mode === opt.mode;
           const Icon = opt.icon;
+            const title = derivOptions && opt.mode === "fixed_lot" ? "Fixed stake" : opt.title;
+            const description = derivOptions && opt.mode === "fixed_lot"
+              ? "Always use the same monetary stake for each copied contract."
+              : derivOptions && opt.mode === "fixed_multiplier"
+                ? "Scale the copied stake by a fixed ratio."
+                : opt.description;
           return (
             <button
               key={opt.mode}
@@ -1165,7 +1180,7 @@ function StepSizing({
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <Icon className={`h-4 w-4 ${selected ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-sm font-medium">{opt.title}</span>
+                  <span className="text-sm font-medium">{title}</span>
                 </div>
                 <div
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
@@ -1178,7 +1193,7 @@ function StepSizing({
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                {opt.description}
+                {description}
               </p>
             </button>
           );
@@ -1237,7 +1252,7 @@ function StepSizing({
 
         {mode === "fixed_lot" && (
           <div className="space-y-2">
-            <label className="rm-label">Lot size</label>
+            <label className="rm-label">{derivOptions ? "Stake amount" : "Lot size"}</label>
             <Input
               type="number"
               step="0.01"
@@ -1249,7 +1264,7 @@ function StepSizing({
               className="font-mono tnum"
             />
             <p className="text-[11px] text-muted-foreground">
-              Every copied trade will use this lot size, regardless of source volume.
+              {derivOptions ? "Every copied contract will use this stake in the linked account currency." : "Every copied trade will use this lot size, regardless of source volume."}
             </p>
           </div>
         )}
@@ -1330,6 +1345,7 @@ function StepExecution({
   replicateTakeProfit,
   replicatePartialClosures,
   destination,
+  derivOptions,
   onChange,
 }: {
   executionMode: ExecutionMode;
@@ -1337,6 +1353,7 @@ function StepExecution({
   replicateTakeProfit: boolean;
   replicatePartialClosures: boolean;
   destination?: BrokerAccount;
+  derivOptions: boolean;
   onChange: (
     patch: Partial<Pick<WizardState, "executionMode" | "replicateStopLoss" | "replicateTakeProfit" | "replicatePartialClosures">>,
   ) => void;
@@ -1424,30 +1441,20 @@ function StepExecution({
 
       <Separator className="bg-white/5" />
 
-      {/* Toggles */}
-      <div className="space-y-3">
-        <div className="rm-label">Trade event replication</div>
-        <div className="space-y-1 rounded-md border border-white/10 bg-black/40 divide-y divide-white/5">
-          <ToggleRow
-            label="Copy stop-loss"
-            description="Mirror stop-loss modifications from the source."
-            checked={replicateStopLoss}
-            onCheckedChange={(v) => onChange({ replicateStopLoss: v })}
-          />
-          <ToggleRow
-            label="Copy take-profit"
-            description="Mirror take-profit modifications from the source."
-            checked={replicateTakeProfit}
-            onCheckedChange={(v) => onChange({ replicateTakeProfit: v })}
-          />
-          <ToggleRow
-            label="Copy partial closes"
-            description="When the source partially closes, mirror the same ratio."
-            checked={replicatePartialClosures}
-            onCheckedChange={(v) => onChange({ replicatePartialClosures: v })}
-          />
+      {derivOptions ? (
+        <div className="rounded-md border border-info/30 bg-info/10 p-3 text-xs text-info">
+          Deriv copying mirrors supported CALL/PUT contracts and source closes. It does not copy partial closes or stop-loss/take-profit settings; copied contracts use the remaining source expiry at execution time.
         </div>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="rm-label">Trade event replication</div>
+          <div className="space-y-1 rounded-md border border-white/10 bg-black/40 divide-y divide-white/5">
+            <ToggleRow label="Copy stop-loss" description="Mirror stop-loss modifications from the source." checked={replicateStopLoss} onCheckedChange={(v) => onChange({ replicateStopLoss: v })} />
+            <ToggleRow label="Copy take-profit" description="Mirror take-profit modifications from the source." checked={replicateTakeProfit} onCheckedChange={(v) => onChange({ replicateTakeProfit: v })} />
+            <ToggleRow label="Copy partial closes" description="When the source partially closes, mirror the same ratio." checked={replicatePartialClosures} onCheckedChange={(v) => onChange({ replicatePartialClosures: v })} />
+          </div>
+        </div>
+      )}
 
       <div className="p-2.5 rounded-md bg-warning/10 border border-warning/30 text-[11px] text-warning flex items-start gap-2">
         <Wallet className="h-3.5 w-3.5 mt-0.5 shrink-0" />

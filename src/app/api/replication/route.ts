@@ -68,13 +68,19 @@ export async function POST(req: NextRequest) {
     const account = await db.brokerAccount.findFirst({ where: { id: brokerAccountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: "Broker account not found" }, { status: 404 });
     if (account.status !== "connected") return NextResponse.json({ error: "Connect the destination account before configuring replication" }, { status: 409 });
-    if (!["mt4", "mt5", "ctrader"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose a connected MT4, MT5, or cTrader destination account" }, { status: 400 });
+    if (!["mt4", "mt5", "ctrader", "deriv"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose a connected MT4, MT5, cTrader, or Deriv destination account" }, { status: 400 });
     const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected" } });
     const sourceIsTerminal = sourceAccount && ["mt4", "mt5"].includes(sourceAccount.brokerCode);
     const sourceIsCTrader = sourceAccount?.brokerCode === "ctrader" && sourceAccount.authMethod === "oauth";
     const sourceIsDeriv = sourceAccount?.brokerCode === "deriv" && sourceAccount.authMethod === "oauth";
     if (!sourceAccount || (!sourceIsTerminal && !sourceIsCTrader && !sourceIsDeriv)) {
       return NextResponse.json({ error: "Choose a connected MT4/MT5 terminal, cTrader OAuth, or Deriv OAuth account as the source" }, { status: 400 });
+    }
+    if ((sourceIsDeriv && account.brokerCode !== "deriv") || (account.brokerCode === "deriv" && !sourceIsDeriv)) {
+      return NextResponse.json({ error: "Deriv Options copying is supported only between two Deriv accounts" }, { status: 400 });
+    }
+    if (sourceIsDeriv && sourceAccount.currency.toUpperCase() !== account.currency.toUpperCase()) {
+      return NextResponse.json({ error: "Deriv Options source and destination accounts must use the same currency" }, { status: 400 });
     }
     if (sourceAccount.id === account.id) return NextResponse.json({ error: "Source and destination accounts must be different" }, { status: 400 });
     if (sourceIsTerminal) {
@@ -89,7 +95,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "The destination MetaTrader terminal is offline" }, { status: 409 });
       }
     } else if (account.authMethod !== "oauth") {
-      return NextResponse.json({ error: "The cTrader destination must be connected through OAuth" }, { status: 409 });
+      return NextResponse.json({ error: "The cTrader or Deriv destination must be connected through OAuth" }, { status: 409 });
     }
 
     if (status !== "paused") return NextResponse.json({ error: "Create replications paused, then explicitly resume after reviewing both linked accounts" }, { status: 400 });

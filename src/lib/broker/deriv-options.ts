@@ -4,8 +4,8 @@ import { PLATFORM_CAPABILITIES } from "@/lib/types";
 
 type DerivAuth = { accessToken: string; expiresAt?: number; accountId: string; isDemo?: boolean };
 
-/** Read-only monitor for Deriv's Options product. Options stakes/contracts are
- * deliberately not represented as FX lots and cannot be executed by this adapter. */
+/** Deriv Options account adapter. Native contracts remain distinct from FX/CFD
+ * lots; execution is limited to standard CALL/PUT contracts with known expiry. */
 export class DerivOptionsConnector implements BrokerConnector {
   readonly broker = "deriv" as const;
   private auth?: DerivAuth;
@@ -31,8 +31,26 @@ export class DerivOptionsConnector implements BrokerConnector {
       freeMargin: balance, leverage: 1, accountType: "hedging", isDemo: this.auth!.isDemo ?? false };
   }
 
+  async getAccountSnapshot() {
+    let balanceResponse: Record<string, any> | undefined;
+    const portfolioResponse = await this.request({ balance: 1 }, (message) => {
+      balanceResponse = message;
+      return { portfolio: 1 };
+    });
+    const balance = Number(balanceResponse?.balance?.balance ?? 0);
+    const currency = String(balanceResponse?.balance?.currency ?? "USD");
+    if (!Number.isFinite(balance)) throw new Error("Deriv returned an invalid account balance");
+    const accountInfo: BrokerAccountInfo = { accountId: this.auth!.accountId, broker: "deriv", currency, balance, equity: balance,
+      margin: 0, freeMargin: balance, leverage: 1, accountType: "hedging", isDemo: this.auth!.isDemo ?? false };
+    return { accountInfo, positions: this.parsePositions(portfolioResponse) };
+  }
+
   async getOpenPositions(): Promise<BrokerPosition[]> {
     const result = await this.request({ portfolio: 1 });
+    return this.parsePositions(result);
+  }
+
+  private parsePositions(result: Record<string, any>): BrokerPosition[] {
     const contracts = Array.isArray(result.portfolio?.contracts) ? result.portfolio.contracts : [];
     return contracts.map((contract: any) => {
       const type = String(contract.contract_type ?? "").toUpperCase();
@@ -52,6 +70,7 @@ export class DerivOptionsConnector implements BrokerConnector {
           product: "deriv_options", contractId: id, contractType: type,
           currency: String(contract.currency ?? ""), stake, volumeUnit: "stake",
           expiryEpoch: Number(contract.date_expiry ?? 0) || null,
+          underlyingSymbol: symbol, sourceEntrySpot: entry,
           longcode: String(contract.longcode ?? ""),
         },
       } satisfies BrokerPosition;
@@ -59,17 +78,67 @@ export class DerivOptionsConnector implements BrokerConnector {
   }
 
   async getInstrumentSpec(_symbol: string): Promise<BrokerInstrumentSpec | null> { return null; }
-  async placeOrder(_req: OrderRequest): Promise<OrderResult> {
-    return { success: false, rejectionReason: "Deriv Options execution is not enabled: contract type, expiry and stake cannot be safely mapped to FX lot orders" };
+  async placeOrder(req: OrderRequest): Promise<OrderResult> {
+    const startedAt = Date.now();
+    if (!req.idempotencyKey) return { success: false, rejectionReason: "An idempotency key is required for Deriv contract purchases" };
+    const meta = req.productMetadata ?? {};
+    const contractType = String(meta.contractType ?? "").toUpperCase();
+    const symbol = String(meta.underlyingSymbol ?? req.instrument);
+    const currency = String(meta.currency ?? "").toUpperCase();
+    const expiryEpoch = Number(meta.expiryEpoch);
+    const duration = Math.floor(expiryEpoch - Date.now() / 1000);
+    if (!(contractType === "CALL" || contractType === "PUT") || !symbol || !currency || !Number.isFinite(expiryEpoch) || duration < 5 || duration > 86_400) {
+      return { success: false, rejectionReason: "Only standard CALL/PUT contracts with a supported remaining expiry can be copied" };
+    }
+    if (!Number.isFinite(req.volume) || req.volume <= 0 || req.volume > 10_000) {
+      return { success: false, rejectionReason: "Deriv stake is outside the supported positive stake range" };
+    }
+    let proposedSpot: number | undefined;
+    const proposal = {
+      proposal: 1, amount: Number(req.volume.toFixed(2)), basis: "stake", contract_type: contractType,
+      currency, duration, duration_unit: "s", underlying_symbol: symbol, subscribe: 1,
+    };
+    const result = await this.request(proposal, (message) => {
+      const quote = message.proposal;
+      const proposalId = String(quote?.id ?? "");
+      const askPrice = Number(quote?.ask_price);
+      if (!proposalId || !Number.isFinite(askPrice) || askPrice <= 0) throw new Error("Deriv did not return a valid contract proposal");
+      const spot = Number(quote?.spot);
+      if (Number.isFinite(spot)) proposedSpot = spot;
+      return { buy: proposalId, price: askPrice };
+    });
+    const bought = result.buy ?? {};
+    const contractId = String(bought.contract_id ?? "");
+    if (!contractId) return { success: false, rejectionReason: "Deriv purchase returned no contract ID" };
+    const entrySpot = Number(proposedSpot ?? meta.sourceEntrySpot);
+    return {
+      success: true, orderId: String(bought.transaction_id ?? contractId), positionId: contractId,
+      executedPrice: Number.isFinite(entrySpot) ? entrySpot : undefined,
+      executedVolume: Number(bought.buy_price ?? req.volume), executionDelayMs: Date.now() - startedAt,
+    };
   }
   async modifyPosition(_positionId: string, _updates: { stopLoss?: number; takeProfit?: number; volume?: number }): Promise<ModifyResult> {
     return { success: false, rejectionReason: "Deriv Options modification is not implemented" };
   }
-  async closePosition(_positionId: string, _volume?: number): Promise<CloseResult> {
-    return { success: false, rejectionReason: "Deriv Options close is not implemented" };
+  async closePosition(positionId: string, _volume?: number): Promise<CloseResult> {
+    if (!/^\d+$/.test(positionId)) return { success: false, rejectionReason: "Invalid Deriv contract ID" };
+    const openPosition = (await this.getOpenPositions()).find((position) => position.positionId === positionId);
+    if (!openPosition) {
+      try {
+        const detail = await this.request({ proposal_open_contract: 1, contract_id: Number(positionId) });
+        const profit = Number(detail.proposal_open_contract?.profit);
+        return { success: true, closedVolume: 0, realizedProfit: Number.isFinite(profit) ? profit : 0 };
+      } catch {
+        return { success: true, closedVolume: 0, realizedProfit: 0 };
+      }
+    }
+    const result = await this.request({ sell: Number(positionId), price: 0 });
+    const sold = result.sell ?? {};
+    if (String(sold.contract_id ?? "") !== positionId) return { success: false, rejectionReason: "Deriv did not confirm the contract sale" };
+    return { success: true, closedVolume: openPosition.volume, realizedProfit: Number(sold.sold_for ?? 0) - openPosition.volume };
   }
 
-  private async request(payload: Record<string, unknown>): Promise<Record<string, any>> {
+  private async request(payload: Record<string, unknown>, followUp?: (message: Record<string, any>) => Record<string, unknown>): Promise<Record<string, any>> {
     if (!this.auth) throw new Error("Deriv account is not authorized");
     if (this.auth.expiresAt && this.auth.expiresAt <= Date.now()) throw new Error("Deriv access token expired; reconnect the account");
     const accountId = encodeURIComponent(this.auth.accountId);
@@ -85,7 +154,8 @@ export class DerivOptionsConnector implements BrokerConnector {
     const WebSocketConstructor = (globalThis as any).WebSocket as (new (url: string) => any) | undefined;
     if (!WebSocketConstructor) throw new Error("WebSocket is not available in this Node.js runtime");
     const socket = new WebSocketConstructor(wsUrl);
-    const reqId = Math.floor(Math.random() * 2_000_000_000) + 1;
+    let reqId = Math.floor(Math.random() * 2_000_000_000) + 1;
+    let nextRequest = followUp;
     try {
       return await new Promise<Record<string, any>>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("Deriv account request timed out")), 12_000);
@@ -100,6 +170,13 @@ export class DerivOptionsConnector implements BrokerConnector {
             const message = JSON.parse(String(event.data));
             if (message.req_id !== reqId) return;
             if (message.error) return finish(new Error(String(message.error.message ?? "Deriv request failed")));
+            if (nextRequest) {
+              const next = nextRequest(message);
+              nextRequest = undefined;
+              reqId = (reqId + 1) % 2_000_000_000 || 1;
+              socket.send(JSON.stringify({ ...next, req_id: reqId }));
+              return;
+            }
             finish(undefined, message);
           } catch { finish(new Error("Deriv returned an invalid WebSocket response")); }
         });

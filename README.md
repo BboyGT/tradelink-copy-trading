@@ -2,7 +2,7 @@
 
 TRADE LINK is a routed, multi-page copy-trading dashboard with account monitoring, replication controls, trade history, analytics, risk settings, and administration views. Its first executable live connection is a MetaTrader 4/5 terminal bridge: the account owner authorizes the terminal locally, while the web app receives snapshots and sends expiring, acknowledged order commands.
 
-**Integration status:** MT4 and MT5 have an Expert Advisor bridge and persistent copy worker. cTrader has OAuth, token refresh, account snapshots, open-position reconciliation, market execution, close, and protection operations; it can be a source or destination. cTrader order paths still need broker demo validation. Deriv OAuth supports balance and open Options contract monitoring; Deriv contracts are retained as native metadata and deliberately excluded from FX lot execution. FXCM requires approved FCLite credentials and an account-session adapter. Sample marketplace analytics are demo data.
+**Integration status:** MT4 and MT5 have an Expert Advisor bridge and persistent copy worker; an FXCM account using MT4 can connect through this same terminal bridge. cTrader has OAuth, token refresh, account snapshots, open-position reconciliation, market execution, close, and protection operations; it can be a source or destination. cTrader order paths still need broker demo validation. Deriv OAuth supports balance and open Options monitoring, with constrained Deriv-to-Deriv copying for standard CALL/PUT contracts, matching currencies, and supported remaining expiry. FXCM Trading Station requires approved FCLite credentials and a broker-session adapter. Sample marketplace analytics are demo data.
 
 ## Tech stack
 
@@ -14,7 +14,7 @@ TRADE LINK is a routed, multi-page copy-trading dashboard with account monitorin
 - **Charts:** Recharts
 - **Validation:** Zod
 
-The application uses Next.js API routes, Prisma, and independent Bun services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader source and destination accounts. Deriv can be monitored as a source but is not an execution destination; FXCM is not yet available for replication.
+The application uses Next.js API routes, Prisma, and independent Bun services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader source and destination accounts, including FXCM accounts running the MT4 terminal. Deriv-to-Deriv copying is supported for standard CALL/PUT contracts only; cross-broker Options-to-FX/CFD copying is disabled. FXCM Trading Station is not yet available for replication.
 
 ## Local setup
 
@@ -134,8 +134,8 @@ Analytics selections are held in browser state; a direct `/analytics` link opens
 - `BaseMockConnector` — demo-only simulator, never used by production registry
 - MT4/MT5 use account-bound `TerminalBridgeConnector` instances
 - cTrader Open API supports source monitoring and destination order, close, and protection operations; demo validation is still required
-- Deriv OAuth uses the official account-scoped one-time WebSocket URL to poll balances and open Options contracts; source contract metadata is stored. Copy execution is disabled until matching Options contracts, expiry behavior, stake sizing, and close handling are implemented end to end.
-- FXCM account linking and trading fail closed pending approved FCLite credentials and session integration
+- Deriv OAuth uses the official account-scoped one-time WebSocket URL to poll balances and open Options contracts. Copy execution supports standard CALL/PUT contracts between matching-currency Deriv accounts, with stake sizing, source-close mirroring, and persistent duplicate prevention. Other contract types, partial closes, and cross-broker copying are rejected.
+- FXCM MT4 accounts use the MetaTrader terminal bridge. FXCM Trading Station account linking and trading fail closed pending approved FCLite credentials and session integration.
 - `getAccountConnector(broker, accountId, credentials)` — connection cache
 - Each connector exposes `capabilities()` returning the `IntegrationCapability` from Part 2.4
 
@@ -175,7 +175,7 @@ There is no default user. Register at the sign-in dialog — the first user beco
 
 ### Production readiness
 
-The app can be built with `bun run build` and deployed with its Next.js standalone output plus the two mini-services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader order flows still need demo validation, Deriv Options execution is not implemented, and FXCM integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
+The app can be built with `bun run build` and deployed with its Next.js standalone output plus the two mini-services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader and Deriv order flows still need broker demo validation, and FXCM Trading Station integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
 
 ## Compliance & data integrity (Part 23, 4.5)
 
@@ -188,8 +188,8 @@ The app can be built with `bun run build` and deployed with its Next.js standalo
 
 ## Known integration limits
 
-- Configure `DERIV_CLIENT_ID` and `CTRADER_CLIENT_ID`/`CTRADER_CLIENT_SECRET` and register their callback URLs. cTrader supports source and destination roles; Deriv is monitor-only and can be selected as a source, but does not place copied trades.
-- FXCM credentials are restricted to approved vendors; the FCLite account-session and execution adapter is not implemented.
+- Configure `DERIV_CLIENT_ID` and `CTRADER_CLIENT_ID`/`CTRADER_CLIENT_SECRET` and register their callback URLs. cTrader supports source and destination roles. Deriv only supports same-currency Deriv-to-Deriv copying for standard CALL/PUT contracts.
+- FXCM MT4 is supported through the terminal bridge. Trading Station credentials are restricted to approved integrations; the FCLite account-session and execution adapter is not implemented.
 - The terminal bridge supports market orders and position close/modify commands. Pending orders and provider-specific symbol/contract normalization are not implemented.
 - Production database migration, distributed job coordination, rate limiting, MFA, and a broker-terminal validation suite remain deployment work.
 
