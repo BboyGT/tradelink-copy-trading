@@ -1,0 +1,804 @@
+// TRADE LINK — Multi-broker copy-trading intelligence platform
+// Prisma schema. SQLite for dev environment; same model works with PostgreSQL
+// in production by changing the datasource provider.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================
+// PART 18 — USERS, SESSIONS, ROLES
+// =============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  role          String   @default("user") // "user" | "admin"
+  status        String   @default("active") // "active" | "suspended" | "deleted"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions              Session[]
+  brokerAccounts        BrokerAccount[]
+  providerSubscriptions ProviderSubscription[]
+  watchlists            Watchlist[]
+  riskConfigs           RiskConfig[]
+  portfolioAllocations  PortfolioAllocation[]
+  notifications         Notification[]
+  replicationConfigs    ReplicationConfig[]
+  auditEvents           AuditEvent[]
+  simulations           SimulationResult[]
+  comparisons           ProviderComparison[]
+  providerChanges       ProviderChangeTracking[]
+  settings              UserSettings?
+  notificationPrefs     NotificationPreferences[]
+  instrumentMappings    InstrumentMapping[] @relation("UserInstrumentMappings")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  expiresAt    DateTime
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+
+  @@index([userId])
+}
+
+// =============================================================
+// PART 3, 21.2 — PROVIDER MARKETPLACE
+// =============================================================
+
+model ProviderPlatform {
+  id            String   @id @default(cuid())
+  code          String   @unique // "deriv" | "deriv-ctrader" | "ctrader-copy" | "mt4" | "mt5" | "external"
+  name          String
+  kind          String   // "copy_trading" | "signal_feed" | "broker_native"
+  capabilities  String   @default("{}") // JSON: IntegrationCapabilityRegistry
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  providers Provider[]
+}
+
+model Provider {
+  id                String   @id @default(cuid())
+  externalId        String   // provider ID on source platform
+  platformId        String
+  platform          ProviderPlatform @relation(fields: [platformId], references: [id])
+  name              String
+  description       String?
+  avatarUrl         String?
+  accountType       String?  // "real" | "demo" | "unknown"
+  accountCurrency   String?
+  startingBalance   Float?
+  reportedBalance   Float?
+  reportedEquity     Float?
+  accountCreatedAt  DateTime?
+  followers         Int      @default(0)
+  subscribers       Int      @default(0)
+  activityStatus    String   @default("active") // "active" | "inactive" | "unknown"
+  verificationLevel String   @default("unverified") // "verified" | "platform_reported" | "calculated" | "estimated" | "incomplete" | "unverified"
+  dataCompleteness  Float    @default(0) // 0..1
+  lastSyncedAt      DateTime?
+  importedById      String?  // user who imported, null = system
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  statistic         ProviderStatistic?
+  historicalTrades  ProviderTrade[]
+  performanceSnaps  ProviderPerformanceSnapshot[]
+  rankings          ProviderRanking[]
+  watchlists        WatchlistEntry[]
+  subscriptions     ProviderSubscription[]
+  replicationConfigs ReplicationConfig[]
+  changeSnapshots   ProviderChangeSnapshot[]
+  healthRecords     ProviderHealthRecord[]
+  recommendations   ProviderRecommendation[]
+
+  @@unique([platformId, externalId])
+  @@index([activityStatus])
+}
+
+model ProviderStatistic {
+  id                    String   @id @default(cuid())
+  providerId            String   @unique
+  provider              Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  // Performance
+  totalReturnPct        Float?
+  dailyReturnPct        Float?
+  weeklyReturnPct       Float?
+  monthlyReturnPct      Float?
+  quarterlyReturnPct    Float?
+  yearlyReturnPct       Float?
+  lifetimeReturnPct     Float?
+  grossProfit           Float?
+  grossLoss             Float?
+  netProfit             Float?
+  totalWinningTrades    Int?
+  totalLosingTrades     Int?
+  totalClosedTrades     Int?
+  winRate               Float?
+  lossRate              Float?
+  avgWinningTrade       Float?
+  avgLosingTrade        Float?
+  largestWinningTrade   Float?
+  largestLosingTrade    Float?
+  profitFactor          Float?
+  avgProfitPerTrade     Float?
+  expectedValuePerTrade Float?
+
+  // Drawdown
+  maxDrawdownPct        Float?
+  currentDrawdownPct    Float?
+  balanceDrawdown       Float?
+  equityDrawdown        Float?
+  maxDrawdownMonetary   Float?
+  avgDrawdownPct        Float?
+  longestDrawdownDays   Int?
+  avgRecoveryDays       Int?
+  maxRecoveryDays       Int?
+  recoveryFactor        Float?
+  largestLosingStreak   Int?
+
+  // Behaviour
+  avgTradesPerDay       Float?
+  tradesPerWeek         Float?
+  avgHoldingHours       Float?
+  longestHoldingHours   Float?
+  shortestHoldingHours  Float?
+  avgVolume             Float?
+  largestVolume         Float?
+  maxSimultaneousPos    Int?
+  buySellRatio          Float?
+  avgTimeBetweenTradesH Float?
+
+  // Risk
+  avgRiskReward         Float?
+  riskConcentration     Float?
+  positionConcentration Float?
+  avgLosingStreak       Float?
+  avgWinningStreak      Float?
+  leverageUsed          Float?
+
+  // Meta
+  calculationPeriod    String? // "lifetime" | "12m" | "6m" | "3m"
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  dataQuality          String  @default("calculated") // "verified" | "platform_reported" | "calculated" | "estimated" | "incomplete" | "unavailable"
+  updatedAt            DateTime @updatedAt
+}
+
+model ProviderTrade {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  externalTradeId String   @unique
+  positionId      String?
+  instrument      String
+  direction       String   // "BUY" | "SELL"
+  entryPrice      Float
+  exitPrice       Float?
+  openTime        DateTime
+  closeTime       DateTime?
+  volume          Float
+  stopLoss        Float?
+  takeProfit      Float?
+  orderType       String   // "market" | "limit" | "stop" | "stop_limit"
+  contractType    String?  // "spot" | "cfd" | "synthetic"
+  grossProfit     Float?
+  netProfit       Float?
+  commission      Float?
+  swap            Float?
+  closingReason   String?
+  dataQuality     String   @default("platform_reported")
+  createdAt       DateTime @default(now())
+
+  @@index([providerId, openTime])
+  @@index([instrument])
+}
+
+model ProviderPerformanceSnapshot {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  snapshotAt      DateTime @default(now())
+  balance         Float?
+  equity          Float?
+  returnPct       Float?
+  drawdownPct     Float?
+  winRate         Float?
+  profitFactor    Float?
+  tradesCount     Int?
+  avgVolume       Float?
+  riskScore       Float?
+}
+
+model ProviderRanking {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category        String   // "best_risk_adjusted" | "most_consistent" | "lowest_drawdown" | "highest_verified_return" | "best_long_term" | "best_recovery" | "high_risk" | "insufficient_history" | "deteriorating"
+  rank            Int
+  score           Float
+  confidence      Float // 0..1 — data confidence score
+  reasonSummary   String
+  strengths       String   @default("[]") // JSON array
+  weaknesses      String   @default("[]")
+  dataLimitations String   @default("[]")
+  computedAt      DateTime @default(now())
+
+  @@index([category, rank])
+}
+
+model ProviderRecommendation {
+  id                String   @id @default(cuid())
+  providerId        String
+  provider          Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  userId            String?
+  score             Float
+  confidence        Float
+  recommendationText String
+  category          String
+  computedAt        DateTime @default(now())
+}
+
+model ProviderChangeSnapshot {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  snapshotAt      DateTime @default(now())
+  returnPct       Float?
+  drawdownPct     Float?
+  winRate         Float?
+  tradingFrequency Float?
+  avgVolume       Float?
+  riskProfile     String?
+  notes           String?
+}
+
+model ProviderChangeTracking {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId      String
+  trackedFields   String   @default("[]") // JSON array of field names
+  createdAt       DateTime @default(now())
+}
+
+model ProviderHealthRecord {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  status          String   // "healthy" | "under_observation" | "deteriorating" | "high_risk" | "paused" | "inactive" | "data_unavailable"
+  reason          String
+  checkedAt       DateTime @default(now())
+  metrics         String   @default("{}") // JSON
+}
+
+// =============================================================
+// PART 5, 20 — WATCHLISTS, COMPARISONS
+// =============================================================
+
+model Watchlist {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  alertConfig String   @default("{}") // JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries WatchlistEntry[]
+}
+
+model WatchlistEntry {
+  id          String   @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  providerId  String
+  provider    Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  addedAt     DateTime @default(now())
+
+  @@unique([watchlistId, providerId])
+}
+
+model ProviderComparison {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String?
+  providerIds String   // JSON array of provider IDs
+  config      String   @default("{}") // JSON: starting balance, sizing, etc.
+  result      String   @default("{}") // JSON: comparison output
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// =============================================================
+// PART 17, 2 — BROKER CONNECTIONS
+// =============================================================
+
+model BrokerAccount {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerCode      String   // "deriv" | "ctrader" | "mt4" | "mt5" | "ftmo" | "fundednext" | "myfundedfx" | "the5ers" | "propfirm" | "external"
+  accountLabel    String
+  externalAccountId String?
+  currency        String   @default("USD")
+  leverage        Float?
+  accountType     String?  // "hedging" | "netting" — advanced option, defaults to hedging
+  isDemo          Boolean  @default(true)
+  isLiveAuthorized Boolean @default(false) // explicit live trading authorization
+  status          String   @default("disconnected") // "connected" | "disconnected" | "expired" | "error"
+  authMethod      String?  // "oauth" | "api_token" | "bridge"
+  authRef         String?  // reference to encrypted credential
+  tokenExpiresAt  DateTime?
+  lastSyncedAt    DateTime?
+  balance         Float    @default(0)
+  equity          Float    @default(0)
+  margin          Float    @default(0)
+  freeMargin      Float    @default(0)
+  // Prop firm fields
+  propFirmType    String?  // "ftmo" | "fundednext" | "myfundedfx" | "the5ers" | "propfirm" | null for regular brokers
+  propFirmPhase   String?  // "challenge" | "verification" | "funded"
+  startingBalance Float?   // for prop firm rule calculations
+  challengeStartedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  replicationConfigs ReplicationConfig[]
+  sourceReplicationConfigs ReplicationConfig[] @relation("SourceBrokerAccount")
+  destinationPositions DestinationPosition[]
+  accountSnapshots AccountSnapshot[]
+  riskConfigs    RiskConfig[]
+  auditEvents    AuditEvent[]
+  terminalBridge TerminalBridge?
+}
+
+model TerminalBridge {
+  id               String   @id @default(cuid())
+  brokerAccountId  String   @unique
+  brokerAccount    BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  tokenHash        String
+  status           String   @default("pending") // pending | connected | disconnected | revoked
+  lastHeartbeatAt  DateTime?
+  terminalVersion  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  positions        TerminalBridgePosition[]
+  commands         TerminalBridgeCommand[]
+}
+
+model TerminalBridgePosition {
+  id                 String   @id @default(cuid())
+  bridgeId           String
+  bridge             TerminalBridge @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+  externalPositionId String
+  instrument         String
+  direction          String
+  volume             Float
+  entryPrice         Float
+  currentPrice       Float
+  stopLoss           Float?
+  takeProfit         Float?
+  swap               Float   @default(0)
+  commission         Float   @default(0)
+  unrealizedProfit   Float   @default(0)
+  openTime           DateTime
+  updatedAt          DateTime @updatedAt
+
+  @@unique([bridgeId, externalPositionId])
+  @@index([bridgeId, updatedAt])
+}
+
+model TerminalBridgeCommand {
+  id             String   @id @default(cuid())
+  bridgeId       String
+  bridge         TerminalBridge @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+  idempotencyKey String   @unique
+  commandType    String   // open | close | modify
+  payload        String
+  status         String   @default("queued") // queued | claimed | completed | rejected | expired
+  result         String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  completedAt    DateTime?
+
+  @@index([bridgeId, status, createdAt])
+}
+
+model AccountSnapshot {
+  id          String   @id @default(cuid())
+  brokerAccountId String
+  brokerAccount BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  snapshotAt  DateTime @default(now())
+  balance     Float
+  equity      Float
+  margin      Float
+  freeMargin  Float
+  openPositions Int
+}
+
+// =============================================================
+// PART 11 — INSTRUMENT MAPPING
+// =============================================================
+
+model InstrumentSpec {
+  id              String   @id @default(cuid())
+  brokerCode      String
+  symbol          String
+  assetClass      String   // "forex" | "metal" | "index" | "crypto" | "synthetic" | "stock"
+  contractSize    Float
+  tickSize        Float
+  tickValue       Float
+  minVolume       Float
+  maxVolume       Float
+  volumeStep      Float
+  tradingHours    String?
+  marginRequired  Float?
+  executionModel  String   @default("market") // "market" | "instant" | "exchange"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([brokerCode, symbol])
+}
+
+model InstrumentMapping {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation("UserInstrumentMappings", fields: [userId], references: [id], onDelete: SetNull)
+  sourceBroker    String
+  sourceSymbol    String
+  destBroker      String
+  destSymbol      String
+  equivalenceConfidence Float @default(0) // 0..1
+  approved        Boolean  @default(false)
+  approvedById    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([sourceBroker, sourceSymbol, destBroker])
+}
+
+// =============================================================
+// PART 8, 9 — REPLICATION ENGINE
+// =============================================================
+
+model ReplicationConfig {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId          String?
+  provider            Provider? @relation(fields: [providerId], references: [id])
+  sourceBrokerAccountId String?
+  sourceBrokerAccount BrokerAccount? @relation("SourceBrokerAccount", fields: [sourceBrokerAccountId], references: [id], onDelete: Cascade)
+  brokerAccountId     String
+  brokerAccount       BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+
+  executionMode       String   @default("approval") // "auto" | "approval" | "notify_only"
+  sizingMode          String   @default("equity_ratio") // "equity_ratio" | "fixed_multiplier" | "fixed_lot" | "risk_based"
+  equityMultiplier    Float    @default(1)
+  fixedLotSize        Float?
+  riskPerTradePct     Float?
+  riskReferenceBase   String   @default("equity") // "balance" | "equity" | "fixed_capital"
+  fixedReferenceCapital Float?
+  maxLotSize          Float?
+  minLotSize          Float?
+  volumeRounding      String   @default("nearest") // "nearest" | "down" | "up"
+
+  // Execution policies
+  replicateStopLoss   Boolean  @default(true)
+  replicateTakeProfit Boolean  @default(true)
+  replicatePartialClosures Boolean @default(true)
+  replicateModifications Boolean @default(true)
+  replicateReversals  Boolean  @default(true)
+  maxSlippagePips     Float?
+  maxExecutionDelayMs Int?
+
+  // State
+  status              String   @default("paused") // "active" | "paused" | "stopped" | "error"
+  lastEventAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sourcePositions     SourcePosition[]
+  auditEvents         AuditEvent[]
+
+  @@index([sourceBrokerAccountId, status])
+}
+
+model SourcePosition {
+  id                  String   @id @default(cuid())
+  replicationConfigId String
+  replicationConfig   ReplicationConfig @relation(fields: [replicationConfigId], references: [id], onDelete: Cascade)
+  externalTradeId     String
+  externalPositionId  String?
+  instrument          String
+  direction           String   // "BUY" | "SELL"
+  entryPrice          Float
+  exitPrice           Float?
+  volume              Float
+  stopLoss            Float?
+  takeProfit          Float?
+  orderType           String
+  openTime            DateTime
+  closeTime           DateTime?
+  grossProfit         Float?
+  netProfit           Float?
+  state               String   @default("open") // "open" | "closed" | "partial" | "cancelled"
+  detectionLatencyMs  Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  destinationPositions DestinationPosition[]
+  executionEvents     ExecutionEvent[]
+
+  @@unique([replicationConfigId, externalTradeId])
+  @@index([replicationConfigId, openTime])
+}
+
+model DestinationPosition {
+  id                  String   @id @default(cuid())
+  brokerAccountId     String
+  brokerAccount       BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  sourcePositionId    String?
+  sourcePosition      SourcePosition? @relation(fields: [sourcePositionId], references: [id], onDelete: SetNull)
+  externalTradeId     String?
+  externalPositionId  String?
+  instrument          String
+  direction           String
+  entryPrice          Float
+  exitPrice           Float?
+  volume              Float
+  stopLoss            Float?
+  takeProfit          Float?
+  orderType           String
+  openTime            DateTime
+  closeTime           DateTime?
+  grossProfit         Float?
+  netProfit           Float?
+  commission          Float?
+  swap                Float?
+  slippagePips       Float?
+  executionDelayMs   Int?
+  state               String   @default("open") // "open" | "closed" | "partial" | "rejected" | "cancelled"
+  rejectionReason    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([brokerAccountId, openTime])
+}
+
+model ExecutionEvent {
+  id              String   @id @default(cuid())
+  sourcePositionId String?
+  sourcePosition  SourcePosition? @relation(fields: [sourcePositionId], references: [id], onDelete: SetNull)
+  eventType       String   // "open" | "modify" | "partial_close" | "close" | "reject" | "reconcile"
+  payload         String   @default("{}") // JSON
+  status          String   @default("pending") // "pending" | "processed" | "failed" | "duplicate"
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
+// =============================================================
+// PART 12, 13 — RISK & PORTFOLIO
+// =============================================================
+
+model RiskConfig {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope               String   // "provider" | "account" | "portfolio"
+  scopeRefId          String?  // providerId | brokerAccountId | null for portfolio
+  brokerAccountId     String?
+  brokerAccount       BrokerAccount? @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+
+  maxRiskPerTradePct  Float?
+  maxDailyLossPct     Float?
+  maxWeeklyLossPct    Float?
+  maxMonthlyLossPct   Float?
+  maxDrawdownPct      Float?
+  maxOpenPositions    Int?
+  maxSimultaneousExposure Float?
+  maxLotSize          Float?
+  maxInstrumentExposure Float?
+  maxConsecutiveLosses Int?
+  maxProviderDrawdownPct Float?
+  maxPortfolioAllocationPct Float?
+  maxExecutionDelayMs Int?
+
+  // Provider deterioration rules
+  autoPauseOnDrawdownBreach Boolean @default(true)
+  autoCloseOnBreach         Boolean @default(false)
+  notifyOnBreach            Boolean @default(true)
+
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId, scope, scopeRefId])
+}
+
+model PortfolioAllocation {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId          String?
+  brokerAccountId     String?
+  allocationPct       Float
+  capitalReference    String   @default("equity") // "balance" | "equity" | "fixed_capital"
+  fixedCapitalAmount  Float?
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model ProviderSubscription {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId          String
+  provider            Provider @relation(fields: [providerId], references: [id])
+  subscribedAt        DateTime @default(now())
+  status              String   @default("active") // "active" | "paused" | "cancelled"
+  notes               String?
+
+  @@unique([userId, providerId])
+}
+
+// =============================================================
+// PART 15 — NOTIFICATIONS
+// =============================================================
+
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String   // "trade_opened" | "trade_closed" | "trade_modified" | "replication_success" | "replication_failed" | "broker_disconnect" | "provider_drawdown" | "risk_breach" | "provider_status" | "reconnect" | "emergency_stop"
+  title           String
+  body            String
+  severity        String   @default("info") // "info" | "success" | "warning" | "error"
+  payload         String   @default("{}") // JSON
+  channels        String   @default("[]") // JSON: ["in_app", "push", "email", "telegram"]
+  read            Boolean  @default(false)
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([read])
+}
+
+// =============================================================
+// PART 6 — BACKTESTING / SIMULATION
+// =============================================================
+
+model SimulationResult {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId      String
+  config          String   // JSON: starting balance, sizing, costs
+  results         String   // JSON: outcome metrics, monthly performance
+  isHypothetical  Boolean  @default(true) // ALWAYS true — never claim actual
+  createdAt       DateTime @default(now())
+}
+
+// =============================================================
+// PART 22, 16 — RELIABILITY, AUDIT, INTEGRATION HEALTH
+// =============================================================
+
+model AuditEvent {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  brokerAccountId String?
+  brokerAccount   BrokerAccount? @relation(fields: [brokerAccountId], references: [id], onDelete: SetNull)
+  replicationConfigId String?
+  replicationConfig ReplicationConfig? @relation(fields: [replicationConfigId], references: [id], onDelete: SetNull)
+  action          String   // e.g. "broker.connect", "replication.start", "trade.execute", "risk.breach"
+  result          String   // "success" | "failure" | "warning"
+  ipAddress       String?
+  details         String   @default("{}") // JSON
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
+}
+
+model IntegrationHealthRecord {
+  id              String   @id @default(cuid())
+  platformCode    String
+  checkedAt       DateTime @default(now())
+  status          String   // "operational" | "degraded" | "down" | "unknown"
+  latencyMs       Int?
+  errorRate       Float?
+  details         String   @default("{}") // JSON
+
+  @@index([platformCode, checkedAt])
+}
+
+model EventProcessingLog {
+  id              String   @id @default(cuid())
+  externalEventId String   @unique
+  sourcePlatform  String
+  providerId      String?
+  eventType       String
+  processed       Boolean  @default(false)
+  processingTime  DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([processed, createdAt])
+}
+
+// =============================================================
+// USER SETTINGS & NOTIFICATION PREFERENCES
+// =============================================================
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification channels
+  notifInApp            Boolean  @default(true)
+  notifPush             Boolean  @default(false)
+  notifEmail            Boolean  @default(true)
+  notifTelegram         Boolean  @default(false)
+
+  // Preferences
+  reportingCurrency     String   @default("USD")
+  defaultSizingMode     String   @default("equity_ratio") // equity_ratio | fixed_multiplier | fixed_lot | risk_based
+  defaultExecutionMode  String   @default("approval") // auto | approval | notify_only
+  defaultRiskReferenceBase String @default("equity") // balance | equity | fixed_capital
+
+  // Telegram
+  telegramChatId        String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model NotificationPreferences {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Scope: "provider" or "account"
+  scope           String   // "provider" | "account"
+  scopeRefId      String   // providerId or brokerAccountId
+
+  // Per-scope channel toggles
+  inApp           Boolean  @default(true)
+  push            Boolean  @default(false)
+  email           Boolean  @default(true)
+  telegram        Boolean  @default(false)
+
+  // Severity thresholds (only notify for severity >= threshold)
+  minSeverity     String   @default("info") // info | success | warning | error
+
+  // Quiet hours (UTC)
+  quietHoursStart Int?     // 0-23
+  quietHoursEnd   Int?     // 0-23
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, scope, scopeRefId])
+}
