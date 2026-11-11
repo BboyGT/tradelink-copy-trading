@@ -21,6 +21,40 @@ import { publishUserTradeEvent } from "@/lib/event-publisher";
 import type { BrokerCode } from "@/lib/types";
 import { hasServiceBearer } from "@/lib/service-auth";
 
+async function closeOnce(idempotencyKey: string, sourcePositionId: string, execute: () => Promise<any>) {
+  const existing = await db.executionEvent.findUnique({ where: { idempotencyKey } });
+  if (existing) {
+    if (existing.status === "processed") {
+      try { return JSON.parse(existing.payload).result; } catch { /* fail closed below */ }
+    }
+    return { success: false, rejectionReason: "This close command was already attempted; reconcile the broker position before retrying" };
+  }
+
+  let ledger;
+  try {
+    ledger = await db.executionEvent.create({ data: {
+      idempotencyKey, sourcePositionId, eventType: "close", status: "pending",
+      payload: JSON.stringify({ submittedAt: new Date().toISOString() }),
+    } });
+  } catch (error: any) {
+    if (error?.code !== "P2002") throw error;
+    return { success: false, rejectionReason: "A concurrent close command already exists; reconcile the broker position before retrying" };
+  }
+  try {
+    const result = await execute();
+    await db.executionEvent.update({ where: { id: ledger.id }, data: {
+      status: result.success ? "processed" : "failed", processedAt: result.success ? new Date() : null,
+      payload: JSON.stringify({ result }),
+    } });
+    return result;
+  } catch (error) {
+    await db.executionEvent.update({ where: { id: ledger.id }, data: {
+      status: "failed", payload: JSON.stringify({ ambiguous: true, message: error instanceof Error ? error.message.slice(0, 300) : "Close request failed" }),
+    } }).catch(() => undefined);
+    return { success: false, rejectionReason: "The close result is uncertain; reconcile the broker position before retrying" };
+  }
+}
+
 export async function GET(req: NextRequest) {
   if (!hasServiceBearer(req, "SCANNER_WORKER_TOKEN")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const accounts = await db.brokerAccount.findMany({
@@ -130,7 +164,7 @@ export async function POST(req: NextRequest) {
                 totalErrors++;
                 continue;
               }
-              if (!["mt4", "mt5"].includes(config.brokerAccount.brokerCode)) {
+              if (!["mt4", "mt5", "ctrader"].includes(config.brokerAccount.brokerCode)) {
                 totalErrors++;
                 continue;
               }
@@ -260,7 +294,8 @@ export async function POST(req: NextRequest) {
                 if (!destAccount) { allDestinationsClosed = false; continue; }
                 if (!destPos.externalPositionId) throw new Error("Destination position has no terminal ticket");
                 const destConnector = await getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency });
-                const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", undefined, `copy-close:${config.id}:${sourcePos.id}:${destPos.id}`);
+                const closeKey = `copy-close:${config.id}:${sourcePos.id}:${destPos.id}`;
+                const closeResult = await closeOnce(closeKey, sourcePos.id, () => destConnector.closePosition(destPos.externalPositionId ?? "", undefined, closeKey));
                 if (!closeResult.success) throw new Error(closeResult.rejectionReason ?? "Terminal rejected close");
                 await db.destinationPosition.update({ where: { id: destPos.id }, data: { state: "closed", closeTime: new Date(), exitPrice: closeResult.closedPrice, grossProfit: closeResult.realizedProfit, netProfit: closeResult.realizedProfit } });
                 await sendNotification(user.id, {
@@ -294,7 +329,7 @@ export async function POST(req: NextRequest) {
                   const closeVolume = Math.floor(requestedCloseVolume / destSpec.volumeStep + 1e-8) * destSpec.volumeStep;
                   if (closeVolume < destSpec.minVolume) throw new Error("Partial close is smaller than the destination broker's minimum volume step");
                   const closeKey = `copy-partial:${config.id}:${sourcePos.id}:${destPos.id}:${event.volume}`;
-                  const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", closeVolume, closeKey);
+                  const closeResult = await closeOnce(closeKey, sourcePos.id, () => destConnector.closePosition(destPos.externalPositionId ?? "", closeVolume, closeKey));
                   if (!closeResult.success) throw new Error(closeResult.rejectionReason ?? "Terminal rejected partial close");
                   const remainingVolume = Math.max(0, destPos.volume - (closeResult.closedVolume ?? closeVolume));
                   await db.destinationPosition.update({ where: { id: destPos.id }, data: remainingVolume < destSpec.minVolume ? { volume: 0, state: "closed", closeTime: new Date() } : { volume: remainingVolume } });

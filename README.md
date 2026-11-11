@@ -2,7 +2,7 @@
 
 TRADE LINK is a routed, multi-page copy-trading dashboard with account monitoring, replication controls, trade history, analytics, risk settings, and administration views. Its first executable live connection is a MetaTrader 4/5 terminal bridge: the account owner authorizes the terminal locally, while the web app receives snapshots and sends expiring, acknowledged order commands.
 
-**Integration status:** MT4 and MT5 have an Expert Advisor bridge and persistent copy worker for source and destination accounts. cTrader has official OAuth, token refresh, account verification, account snapshots, and open-position monitoring, so it can be used as a source for MT4/MT5 destinations. cTrader destination execution is still disabled. Deriv account linking exists, but its contract monitoring/copy adapter is not implemented. FXCM requires approved FCLite credentials and an account-session adapter. Sample marketplace analytics are demo data.
+**Integration status:** MT4 and MT5 have an Expert Advisor bridge and persistent copy worker. cTrader has OAuth, token refresh, account snapshots, open-position reconciliation, market execution, close, and protection operations; it can be a source or destination. cTrader order paths still need broker demo validation. Deriv account linking exists, but its options contract adapter is not implemented. FXCM requires approved FCLite credentials and an account-session adapter. Sample marketplace analytics are demo data.
 
 ## Tech stack
 
@@ -14,7 +14,7 @@ TRADE LINK is a routed, multi-page copy-trading dashboard with account monitorin
 - **Charts:** Recharts
 - **Validation:** Zod
 
-The application uses Next.js API routes, Prisma, and independent Bun services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader as sources; all current copy destinations must be connected MT4/MT5 terminal bridges. Deriv and FXCM cannot currently be used for replication.
+The application uses Next.js API routes, Prisma, and independent Bun services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader source and destination accounts. Deriv and FXCM cannot currently be used for replication.
 
 ## Local setup
 
@@ -133,7 +133,7 @@ Analytics selections are held in browser state; a direct `/analytics` link opens
 - `BrokerConnector` interface — standardized contract for all brokers
 - `BaseMockConnector` — demo-only simulator, never used by production registry
 - MT4/MT5 use account-bound `TerminalBridgeConnector` instances
-- cTrader Open API supports source account monitoring; its destination execution remains disabled
+- cTrader Open API supports source monitoring and destination order, close, and protection operations; demo validation is still required
 - Deriv OAuth links accounts, but contract monitoring and execution fail closed until its adapter is completed
 - FXCM account linking and trading fail closed pending approved FCLite credentials and session integration
 - `getAccountConnector(broker, accountId, credentials)` — connection cache
@@ -175,7 +175,7 @@ There is no default user. Register at the sign-in dialog — the first user beco
 
 ### Production readiness
 
-The app can be built with `bun run build` and deployed with its Next.js standalone output plus the two mini-services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader is source-only, Deriv account linking has no trade adapter, and FXCM integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
+The app can be built with `bun run build` and deployed with its Next.js standalone output plus the two mini-services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader order flows still need demo validation, Deriv account linking has no options trade adapter, and FXCM integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
 
 ## Compliance & data integrity (Part 23, 4.5)
 
@@ -188,7 +188,7 @@ The app can be built with `bun run build` and deployed with its Next.js standalo
 
 ## Known integration limits
 
-- Configure `DERIV_CLIENT_ID` and `CTRADER_CLIENT_ID`/`CTRADER_CLIENT_SECRET` and register their callback URLs. cTrader can be used as a source for MT4/MT5 destinations; Deriv remains account-linking only.
+- Configure `DERIV_CLIENT_ID` and `CTRADER_CLIENT_ID`/`CTRADER_CLIENT_SECRET` and register their callback URLs. cTrader supports source and destination roles; Deriv remains account-linking only.
 - FXCM credentials are restricted to approved vendors; the FCLite account-session and execution adapter is not implemented.
 - The terminal bridge supports market orders and position close/modify commands. Pending orders and provider-specific symbol/contract normalization are not implemented.
 - Production database migration, distributed job coordination, rate limiting, MFA, and a broker-terminal validation suite remain deployment work.

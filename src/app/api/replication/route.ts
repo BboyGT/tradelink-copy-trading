@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
     // Verify ownership
     const account = await db.brokerAccount.findFirst({ where: { id: brokerAccountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: "Broker account not found" }, { status: 404 });
-    if (!["mt4", "mt5"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose an MT4 or MT5 destination account" }, { status: 400 });
+    if (account.status !== "connected") return NextResponse.json({ error: "Connect the destination account before configuring replication" }, { status: 409 });
+    if (!["mt4", "mt5", "ctrader"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose a connected MT4, MT5, or cTrader destination account" }, { status: 400 });
     const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected" } });
     const sourceIsTerminal = sourceAccount && ["mt4", "mt5"].includes(sourceAccount.brokerCode);
     const sourceIsCTrader = sourceAccount?.brokerCode === "ctrader" && sourceAccount.authMethod === "oauth";
@@ -81,15 +82,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "The source MetaTrader terminal is offline" }, { status: 409 });
       }
     }
-    const destinationBridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
-    if (!destinationBridge || destinationBridge.status !== "connected" || !destinationBridge.lastHeartbeatAt || Date.now() - destinationBridge.lastHeartbeatAt.getTime() > 20_000) {
-      return NextResponse.json({ error: "The destination MetaTrader terminal is offline" }, { status: 409 });
+    if (["mt4", "mt5"].includes(account.brokerCode)) {
+      const destinationBridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
+      if (!destinationBridge || destinationBridge.status !== "connected" || !destinationBridge.lastHeartbeatAt || Date.now() - destinationBridge.lastHeartbeatAt.getTime() > 20_000) {
+        return NextResponse.json({ error: "The destination MetaTrader terminal is offline" }, { status: 409 });
+      }
+    } else if (account.authMethod !== "oauth") {
+      return NextResponse.json({ error: "The cTrader destination must be connected through OAuth" }, { status: 409 });
     }
 
     if (status !== "paused") return NextResponse.json({ error: "Create replications paused, then explicitly resume after reviewing both linked accounts" }, { status: 400 });
-    if (status === "active" && !["mt4", "mt5"].includes(account.brokerCode)) {
-      return NextResponse.json({ error: "Active copying currently requires a connected MT4 or MT5 terminal bridge" }, { status: 501 });
-    }
     if (status === "active") {
       if (!process.env.SCANNER_WORKER_TOKEN || process.env.SCANNER_WORKER_TOKEN.length < 32) return NextResponse.json({ error: "Persistent copy worker is not configured on this deployment" }, { status: 503 });
     }

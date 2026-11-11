@@ -40,12 +40,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
       const sourceIsTerminal = !!config.sourceBrokerAccount && ["mt4", "mt5"].includes(config.sourceBrokerAccount.brokerCode);
       const sourceIsCTrader = config.sourceBrokerAccount?.brokerCode === "ctrader" && config.sourceBrokerAccount.authMethod === "oauth";
-      if (!config.sourceBrokerAccount || (!sourceIsTerminal && !sourceIsCTrader) || !["mt4", "mt5"].includes(config.brokerAccount.brokerCode)) return NextResponse.json({ error: "Replication requires an MT4/MT5 terminal or cTrader OAuth source and an MT4/MT5 destination" }, { status: 409 });
+      const destinationIsTerminal = ["mt4", "mt5"].includes(config.brokerAccount.brokerCode);
+      const destinationIsCTrader = config.brokerAccount.brokerCode === "ctrader" && config.brokerAccount.authMethod === "oauth";
+      if (!config.sourceBrokerAccount || (!sourceIsTerminal && !sourceIsCTrader) || (!destinationIsTerminal && !destinationIsCTrader)) return NextResponse.json({ error: "Replication requires a connected MT4/MT5 terminal or cTrader OAuth account at both ends" }, { status: 409 });
       if (!process.env.SCANNER_WORKER_TOKEN || process.env.SCANNER_WORKER_TOKEN.length < 32) return NextResponse.json({ error: "Persistent copy worker is not configured" }, { status: 503 });
-      const bridgeAccounts = sourceIsTerminal ? [config.sourceBrokerAccount, config.brokerAccount] : [config.brokerAccount];
+      const bridgeAccounts = [
+        ...(sourceIsTerminal ? [config.sourceBrokerAccount] : []),
+        ...(destinationIsTerminal ? [config.brokerAccount] : []),
+      ];
       for (const account of bridgeAccounts) {
         const bridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
         if (!bridge || bridge.status !== "connected" || !bridge.lastHeartbeatAt || Date.now() - bridge.lastHeartbeatAt.getTime() > 20_000) return NextResponse.json({ error: `${account.accountLabel} terminal is offline` }, { status: 409 });
+      }
+      if (sourceIsCTrader || destinationIsCTrader) {
+        const { getAccountConnector } = await import("@/lib/broker/connector");
+        for (const account of [sourceIsCTrader ? config.sourceBrokerAccount : null, destinationIsCTrader ? config.brokerAccount : null].filter(Boolean)) {
+          const connector = await getAccountConnector("ctrader", account!.id, { accountId: account!.externalAccountId ?? undefined });
+          await connector.getAccountInfo();
+        }
       }
       await seedSourceBaseline(id, config.sourceBrokerAccount);
       await db.replicationConfig.update({ where: { id }, data: { status: "active" } });

@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { BrokerAccountInfo, BrokerConnector, BrokerInstrumentSpec, BrokerPosition, CloseResult, ModifyResult, OrderRequest, OrderResult } from "./connector";
 import type { BrokerCode, IntegrationCapability } from "@/lib/types";
 import { db } from "@/lib/db";
@@ -6,7 +6,7 @@ import { decrypt, encrypt } from "@/lib/encryption";
 
 type Json = Record<string, any>;
 export type CTraderAuth = Json & { accessToken?: string; refreshToken?: string; expiresAt?: number; ctidTraderAccountId?: string; isLive?: boolean };
-type RequestSpec = { payloadType: number; expectedType: number; payload: Json };
+type RequestSpec = { payloadType: number; expectedType: number; errorTypes?: number[]; continueWhen?: (payload: Json) => boolean; payload: Json };
 function amount(value: unknown, digits: unknown) {
   const n = Number(value ?? 0);
   const scale = Math.max(0, Math.min(12, Number(digits ?? 0)));
@@ -72,7 +72,11 @@ async function openApiRequests(auth: CTraderAuth, requests: RequestSpec[]): Prom
         const clientMsgId = String(message.clientMsgId ?? "");
         const requestIndex = requestIds.indexOf(clientMsgId);
         if (requestIndex < 0) return;
+        if (requests[requestIndex].errorTypes?.includes(type)) {
+          throw new Error(String(payload.description ?? payload.errorCode ?? "cTrader rejected the order"));
+        }
         if (type !== requests[requestIndex].expectedType) return;
+        if (requests[requestIndex].continueWhen?.(payload)) return;
         results.set(clientMsgId, payload);
         if (results.size === requests.length) finish();
       } catch (error) {
@@ -243,17 +247,139 @@ export class CTraderOpenApiConnector implements BrokerConnector {
     };
   }
 
-  async placeOrder(_request: OrderRequest): Promise<OrderResult> { return { success: false, rejectionReason: "cTrader execution is not enabled until the live fill and protection flow is completed" }; }
-  async modifyPosition(_positionId: string, _updates: { stopLoss?: number; takeProfit?: number; volume?: number }, _idempotencyKey?: string): Promise<ModifyResult> { return { success: false, rejectionReason: "cTrader position modification is not implemented" }; }
-  async closePosition(_positionId: string, _volume?: number, _idempotencyKey?: string): Promise<CloseResult> { return { success: false, rejectionReason: "cTrader position closure is not implemented" }; }
+  async placeOrder(request: OrderRequest): Promise<OrderResult> {
+    if (!this.isAuthorized()) return { success: false, rejectionReason: "cTrader account is not authorized" };
+    if (request.orderType !== "market") return { success: false, rejectionReason: "Only market orders are supported by the cTrader copy connector" };
+    if (!request.idempotencyKey) return { success: false, rejectionReason: "A stable idempotency key is required for cTrader orders" };
+    if (!Number.isFinite(request.volume) || request.volume <= 0) return { success: false, rejectionReason: "Order volume must be positive" };
+
+    const normalized = request.instrument.replaceAll("/", "").toUpperCase();
+    const spec = await this.getInstrumentSpec(request.instrument);
+    if (!spec) return { success: false, rejectionReason: `cTrader does not offer ${request.instrument}` };
+    const symbol = this.symbols.find((entry) => String(entry.symbolName ?? entry.name ?? "").replaceAll("/", "").toUpperCase() === normalized);
+    if (!symbol) return { success: false, rejectionReason: `cTrader symbol metadata is unavailable for ${request.instrument}` };
+    const lotSize = numberField(symbol.lotSize, `lot size for ${request.instrument}`);
+    if (request.volume < spec.minVolume || request.volume > spec.maxVolume || Math.abs(request.volume / spec.volumeStep - Math.round(request.volume / spec.volumeStep)) > 1e-6) {
+      return { success: false, rejectionReason: "Order volume violates cTrader symbol minimum, maximum, or step rules" };
+    }
+    const safeKey = createHash("sha256").update(request.idempotencyKey).digest("hex").slice(0, 40);
+    const label = `tl-${safeKey}`;
+
+    // Recover an order accepted before a worker timeout. Open positions are
+    // matched by the persistent broker label; the recent order ledger prevents
+    // another submission when that position has already closed.
+    const [reconcile] = await this.request([{ payloadType: 2124, expectedType: 2125, payload: {} }]);
+    const positions = Array.isArray(reconcile.position) ? reconcile.position as Json[] : [];
+    const existingPosition = positions.find((position) => String((position.tradeData as Json)?.label ?? "") === label);
+    if (existingPosition) {
+      const trade = existingPosition.tradeData as Json;
+      if (request.stopLoss !== undefined || request.takeProfit !== undefined) {
+        const protection = await this.modifyPosition(String(existingPosition.positionId), { stopLoss: request.stopLoss, takeProfit: request.takeProfit });
+        if (!protection.success) return { success: false, rejectionReason: `Existing cTrader fill was recovered, but protection is still missing: ${protection.rejectionReason}` };
+      }
+      return { success: true, orderId: String(existingPosition.positionId), positionId: String(existingPosition.positionId), executedPrice: Number(existingPosition.price), executedVolume: Number(trade.volume) / lotSize };
+    }
+    const [recentOrders] = await this.request([{ payloadType: 2175, expectedType: 2176, payload: { fromTimestamp: Date.now() - 86_400_000, toTimestamp: Date.now() } }]);
+    const orders = Array.isArray(recentOrders.order) ? recentOrders.order as Json[] : [];
+    if (recentOrders.hasMore) return { success: false, rejectionReason: "cTrader order history is truncated; refusing a new order until its idempotency label can be checked" };
+    if (orders.some((order) => String((order.tradeData as Json)?.label ?? "") === label)) {
+      return { success: false, rejectionReason: "A matching cTrader order already exists but no open position was returned; reconcile the broker order before retrying" };
+    }
+
+    const orderStartedAt = Date.now();
+    const [execution] = await this.request([{
+      payloadType: 2106, expectedType: 2126, errorTypes: [2132],
+      payload: {
+        symbolId: String(symbol.symbolId), orderType: 1, tradeSide: request.direction === "BUY" ? 1 : 2,
+        volume: Math.round(request.volume * lotSize), label,
+      },
+      continueWhen: (payload) => Number(payload.executionType) === 2 || Number(payload.executionType) === 11,
+    }]);
+    const order = execution.order as Json | undefined;
+    const position = execution.position as Json | undefined;
+    const deal = execution.deal as Json | undefined;
+    if (Number(execution.executionType) !== 3 || !position?.positionId || !deal?.executionPrice || Number(deal.filledVolume ?? 0) <= 0) {
+      return { success: false, rejectionReason: "cTrader did not confirm a filled market order" };
+    }
+    const positionId = String(position.positionId);
+    const protectedResult = request.stopLoss || request.takeProfit
+      ? await this.modifyPosition(positionId, { stopLoss: request.stopLoss, takeProfit: request.takeProfit })
+      : { success: true };
+    if (!protectedResult.success) {
+      const rollback = await this.closePosition(positionId);
+      return { success: false, rejectionReason: rollback.success
+        ? "The protective stop could not be applied; the cTrader fill was immediately closed"
+        : "URGENT: cTrader filled the order but protection and automatic closure both failed; inspect the account immediately" };
+    }
+    return {
+      success: true, orderId: String(order?.orderId ?? deal.orderId ?? positionId), positionId,
+      executedPrice: Number(deal.executionPrice), executedVolume: Number(deal.filledVolume) / lotSize,
+      executionDelayMs: Date.now() - orderStartedAt,
+    };
+  }
+
+  async modifyPosition(positionId: string, updates: { stopLoss?: number; takeProfit?: number; volume?: number }): Promise<ModifyResult> {
+    if (!this.isAuthorized()) return { success: false, rejectionReason: "cTrader account is not authorized" };
+    if (updates.volume !== undefined) return { success: false, rejectionReason: "cTrader volume changes must use its close-position operation" };
+    if (updates.stopLoss === undefined && updates.takeProfit === undefined) return { success: true };
+    try {
+      const [event] = await this.request([{
+        payloadType: 2110, expectedType: 2126, errorTypes: [2132],
+        payload: { positionId: String(positionId), ...(updates.stopLoss !== undefined ? { stopLoss: updates.stopLoss } : {}), ...(updates.takeProfit !== undefined ? { takeProfit: updates.takeProfit } : {}) },
+      }]);
+      if (Number(event.executionType) === 7) return { success: false, rejectionReason: String(event.errorCode ?? "cTrader rejected protection update") };
+      const currentPositions = await this.getOpenPositions();
+      const position = currentPositions.find((row) => row.positionId === String(positionId));
+      if (!position) return { success: false, rejectionReason: "cTrader position disappeared before its protection could be verified" };
+      const matches = (actual: number | undefined, expected: number | undefined) => expected === undefined || (actual !== undefined && Math.abs(actual - expected) <= Math.max(1e-8, Math.abs(expected) * 1e-8));
+      if (!matches(position.stopLoss, updates.stopLoss) || !matches(position.takeProfit, updates.takeProfit)) {
+        return { success: false, rejectionReason: "cTrader acknowledged the protection request but the reconciled position does not match it" };
+      }
+      return { success: true };
+    } catch (error) { return { success: false, rejectionReason: error instanceof Error ? error.message : "cTrader modification failed" }; }
+  }
+
+  async closePosition(positionId: string, volume?: number): Promise<CloseResult> {
+    if (!this.isAuthorized()) return { success: false, rejectionReason: "cTrader account is not authorized" };
+    try {
+      const [reconcile] = await this.request([{ payloadType: 2124, expectedType: 2125, payload: {} }]);
+      const position = (Array.isArray(reconcile.position) ? reconcile.position as Json[] : []).find((row) => String(row.positionId) === String(positionId));
+      if (!position) return { success: false, rejectionReason: "cTrader position was not found during reconciliation" };
+      const trade = position.tradeData as Json;
+      const [symbol] = await this.request([{ payloadType: 2116, expectedType: 2117, payload: { symbolId: [String(trade.symbolId)] } }]);
+      const metadata = (Array.isArray(symbol.symbol) ? symbol.symbol as Json[] : [])[0];
+      const lotSize = numberField(metadata?.lotSize, "position lot size");
+      const openLots = Number(trade.volume) / lotSize;
+      const closeLots = volume ?? openLots;
+      if (!Number.isFinite(closeLots) || closeLots <= 0 || closeLots > openLots + 1e-8) return { success: false, rejectionReason: "Requested cTrader close volume is invalid" };
+      const [event] = await this.request([{
+        payloadType: 2111, expectedType: 2126, errorTypes: [2132],
+        payload: { positionId: String(positionId), volume: Math.min(Number(trade.volume), Math.round(closeLots * lotSize)) },
+        continueWhen: (payload) => Number(payload.executionType) === 2,
+      }]);
+      if (Number(event.executionType) !== 3 || !event.deal) return { success: false, rejectionReason: String(event.errorCode ?? "cTrader did not confirm a filled close") };
+      const deal = event.deal as Json;
+      const digits = deal.moneyDigits ?? 0;
+      const detail = deal.closePositionDetail as Json | undefined;
+      const closedVolume = Number(deal.filledVolume ?? detail?.closedVolume ?? 0) / lotSize;
+      if (!volume && closedVolume + 1e-8 < openLots) {
+        return { success: false, rejectionReason: "cTrader only partially filled the full-close request; reconcile the remaining position before retrying" };
+      }
+      return {
+        success: true, closedVolume,
+        closedPrice: Number(deal.executionPrice),
+        realizedProfit: detail ? amount(detail.grossProfit, digits) + amount(detail.swap, digits) + amount(detail.commission, digits) : undefined,
+      };
+    } catch (error) { return { success: false, rejectionReason: error instanceof Error ? error.message : "cTrader position closure failed" }; }
+  }
 
   capabilities(): IntegrationCapability {
     return {
       providerDiscovery: false, providerStatistics: false, historicalTrades: false, liveTradeEvents: false,
       openPositions: true, stopLossInfo: true, takeProfitInfo: true, partialClosures: true,
-      tradeExecution: false, positionModification: false, positionClosure: false,
+      tradeExecution: true, positionModification: true, positionClosure: true,
       accountEquity: true, accountBalance: true, streamingMode: "periodic",
-      notes: "OAuth account authorization, account data, and open position monitoring are available; destination execution is disabled pending tested fill/protection handling",
+      notes: "OAuth account authorization, account data, position reconciliation, and market execution/close/protection are implemented; validate with cTrader demo accounts before live use",
     };
   }
 }

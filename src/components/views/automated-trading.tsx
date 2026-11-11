@@ -883,7 +883,7 @@ function StepSource({
       <div>
         <h2 className="text-lg font-semibold">Where do you want to copy from?</h2>
         <p className="text-sm text-muted-foreground">
-          This account’s open trades are monitored. cTrader sources currently copy to MT4/MT5 destinations.
+          Open positions are monitored through the selected broker connection. cTrader can be used as either a source or destination.
         </p>
       </div>
 
@@ -934,7 +934,7 @@ function StepDestination({
   onSelect: (id: string) => void;
   onConnectBroker: () => void;
 }) {
-  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && ["mt4", "mt5"].includes(a.brokerCode));
+  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && (["mt4", "mt5"].includes(a.brokerCode) || (a.brokerCode === "ctrader" && a.authMethod === "oauth")));
 
   return (
     <div className="space-y-4">
@@ -951,7 +951,7 @@ function StepDestination({
           <div className="space-y-1">
             <p className="text-sm font-medium">No other broker accounts</p>
             <p className="text-xs text-muted-foreground">
-              Link an online MT4 or MT5 terminal to use as the destination.
+              Link an online MT4/MT5 terminal or cTrader OAuth account to use as the destination.
             </p>
           </div>
           <Button size="sm" onClick={onConnectBroker}>

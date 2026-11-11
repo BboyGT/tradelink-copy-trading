@@ -587,6 +587,7 @@ model DestinationPosition {
 
 model ExecutionEvent {
   id              String   @id @default(cuid())
+  idempotencyKey  String?  @unique
   sourcePositionId String?
   sourcePosition  SourcePosition? @relation(fields: [sourcePositionId], references: [id], onDelete: SetNull)
   eventType       String   // "open" | "modify" | "partial_close" | "close" | "reject" | "reconcile"
