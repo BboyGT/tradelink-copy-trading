@@ -167,7 +167,8 @@ function colorForPct(pct: number): RiskColor {
   return "profit";
 }
 
-function colorVar(c: RiskColor): string {
+function colorVar(c: RiskColor | "info"): string {
+  if (c === "info") return "var(--info)";
   return c === "loss" ? "var(--loss)" : c === "warning" ? "var(--warning)" : "var(--profit)";
 }
 

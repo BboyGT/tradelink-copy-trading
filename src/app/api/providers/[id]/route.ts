@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }),
     ]);
 
-    let subscription = null;
+    let subscription: Awaited<ReturnType<typeof db.providerSubscription.findFirst>> = null;
     if (user) {
       subscription = await db.providerSubscription.findFirst({
         where: { userId: user.id, providerId: id },

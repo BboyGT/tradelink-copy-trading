@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { isConfiguredSecret } from "@/lib/secret-utils";
 
 type EventToken = { sub: string; exp: number; scope: "events:read" };
 
 function secret() {
   const value = process.env.NEXTAUTH_SECRET;
-  if (!value || value.length < 32) throw new Error("NEXTAUTH_SECRET must be at least 32 characters");
+  if (!isConfiguredSecret(value)) throw new Error("NEXTAUTH_SECRET must be a unique random secret of at least 32 characters");
   return value;
 }
 

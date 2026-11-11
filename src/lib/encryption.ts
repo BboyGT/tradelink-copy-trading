@@ -7,6 +7,7 @@
 // If not set, one is generated for the dev session (NOT secure for production).
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import { isConfiguredSecret } from "@/lib/secret-utils";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // GCM standard IV length
@@ -16,12 +17,13 @@ const KEY_LENGTH = 32;
 
 function getEncryptionKey(): Buffer {
   const envKey = process.env.ENCRYPTION_KEY;
-  if (envKey) {
+  if (isConfiguredSecret(envKey) && envKey !== process.env.NEXTAUTH_SECRET) {
     // Derive a 32-byte key from the environment variable using scrypt
     const salt = Buffer.from("tradelink-static-salt-v1", "utf8");
     return scryptSync(envKey, salt, KEY_LENGTH);
   }
-  if (process.env.NODE_ENV === "production") throw new Error("ENCRYPTION_KEY must be configured in production");
+  if (process.env.NODE_ENV === "production") throw new Error("ENCRYPTION_KEY must be a unique random secret of at least 32 characters in production");
+  if (envKey) console.warn("[security] ENCRYPTION_KEY is missing, too short, a template value, or duplicates NEXTAUTH_SECRET; using a temporary dev key.");
   // Dev fallback — NOT secure for production. Generates a random key per process.
   // This means encrypted data becomes unreadable after a server restart in dev.
   if (!globalThis._tradelinkDevKey) {

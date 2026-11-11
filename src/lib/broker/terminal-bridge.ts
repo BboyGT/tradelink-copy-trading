@@ -68,7 +68,7 @@ export class TerminalBridgeConnector implements BrokerConnector {
     return { ...spec, tradingHours: spec.tradingHours ?? undefined, marginRequired: spec.marginRequired ?? undefined, executionModel: spec.executionModel as BrokerInstrumentSpec["executionModel"] };
   }
 
-  private async execute(commandType: "open" | "close" | "modify", payload: Record<string, unknown>, idempotencyKey = randomUUID()): Promise<Record<string, unknown>> {
+  private async execute(commandType: "open" | "close" | "modify", payload: Record<string, unknown>, idempotencyKey: string = randomUUID()): Promise<Record<string, unknown>> {
     const bridge = await this.getFreshBridge();
     let command = await db.terminalBridgeCommand.findUnique({ where: { idempotencyKey } });
     if (command) {

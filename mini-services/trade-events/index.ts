@@ -6,7 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 import { Server } from "socket.io";
 import { verifyEventToken } from "../../src/lib/event-token";
 
-const PORT = Number(process.env.PORT ?? 3003);
+const PORT = Number(process.env.EVENTS_PORT ?? 3003);
 const serviceToken = process.env.EVENTS_SERVICE_TOKEN;
 const allowedOrigins = (process.env.WEB_ORIGINS ?? process.env.NEXTAUTH_URL ?? "")
   .split(",").map((value) => value.trim()).filter(Boolean);

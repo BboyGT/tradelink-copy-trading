@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         } });
         const previousPositions = await db.sourcePosition.findMany({
           where: { replicationConfig: { sourceBrokerAccountId: account.id }, state: "open" },
-          select: { id: true, externalPositionId: true, volume: true, stopLoss: true, takeProfit: true, instrument: true, direction: true, entryPrice: true, state: true },
+          select: { id: true, replicationConfigId: true, externalPositionId: true, volume: true, stopLoss: true, takeProfit: true, instrument: true, direction: true, entryPrice: true, state: true },
         });
 
         const { events, summary } = diffPositions(
@@ -378,6 +378,8 @@ export async function POST(req: NextRequest) {
             }
           } else if (event.type === "close" && sourcePositions.length) {
             for (const sourcePos of sourcePositions) {
+            const config = account.sourceReplicationConfigs.find((item) => item.id === sourcePos.replicationConfigId);
+            if (!config) continue;
             const destPositions = await db.destinationPosition.findMany({ where: { sourcePositionId: sourcePos.id, state: "open" } });
             let allDestinationsClosed = true;
             for (const destPos of destPositions) {
@@ -401,6 +403,8 @@ export async function POST(req: NextRequest) {
             }
           } else if (event.type === "partial_close" && sourcePositions.length) {
             for (const sourcePos of sourcePositions) {
+            const config = account.sourceReplicationConfigs.find((item) => item.id === sourcePos.replicationConfigId);
+            if (!config) continue;
             if (!config.replicatePartialClosures) {
               await db.sourcePosition.update({ where: { id: sourcePos.id }, data: { volume: event.volume, state: "open" } });
               continue;
@@ -432,6 +436,8 @@ export async function POST(req: NextRequest) {
             }
           } else if (event.type === "modify" && sourcePositions.length) {
             for (const sourcePos of sourcePositions) {
+            const config = account.sourceReplicationConfigs.find((item) => item.id === sourcePos.replicationConfigId);
+            if (!config) continue;
             if (!config.replicateModifications) {
               await db.sourcePosition.update({ where: { id: sourcePos.id }, data: { stopLoss: event.stopLoss, takeProfit: event.takeProfit } });
               continue;

@@ -14,15 +14,15 @@ TRADE LINK is a routed, multi-page copy-trading dashboard with account monitorin
 - **Charts:** Recharts
 - **Validation:** Zod
 
-The application uses Next.js API routes, Prisma, and independent Bun services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader source and destination accounts, including FXCM accounts running the MT4 terminal. Deriv-to-Deriv copying is supported for standard CALL/PUT contracts only; cross-broker Options-to-FX/CFD copying is disabled. FXCM Trading Station is not yet available for replication.
+The application uses Next.js API routes, Prisma, and independent Node.js services for persistent copy monitoring and authenticated trade-event delivery. The scanner supports MT4/MT5 and cTrader source and destination accounts, including FXCM accounts running the MT4 terminal. Deriv-to-Deriv copying is supported for standard CALL/PUT contracts only; cross-broker Options-to-FX/CFD copying is disabled. FXCM Trading Station is not yet available for replication.
 
 ## Local setup
 
-1. Install Bun and copy `.env.example` to `.env`.
-2. Generate unique secrets for `NEXTAUTH_SECRET`, `ENCRYPTION_KEY`, `SCANNER_WORKER_TOKEN`, and `EVENTS_SERVICE_TOKEN` (at least 32 characters each). Keep `.env` out of source control.
-3. Set `NEXTAUTH_URL` to the app origin and set `WEB_ORIGINS` to the browser origin. Configure a durable production database before deploying.
-4. Run `.zscripts/dev.sh` in the Linux/Bun development environment. It installs app and service dependencies, prepares the database, then starts the app, event service, and copy worker. The worker needs `SCANNER_WORKER_TOKEN` and `APP_INTERNAL_URL`.
-5. For app-only development, run `bun install`, `bun run db:generate`, `bun run db:push`, and `bun run dev`; the background copy and event services must also be started separately.
+1. Install Node.js 20+ and npm 10+, then copy `.env.example` to `.env`.
+2. Generate separate random secrets for `NEXTAUTH_SECRET`, `ENCRYPTION_KEY`, `SCANNER_WORKER_TOKEN`, and `EVENTS_SERVICE_TOKEN` (at least 32 random bytes each). Keep `.env` out of source control.
+3. Set `NEXTAUTH_URL` to the app origin and `WEB_ORIGINS` to the browser origin. Configure a durable production database before deploying.
+4. Run `npm install`, `npm run db:generate`, `npm run db:push`, then `npm run dev:stack` to start the web app, event service, and copy worker together.
+5. For app-only development, run `npm run dev`. Start the worker and event service separately with `npm run dev:worker` and `npm run dev:events` when you need automatic monitoring and live event delivery.
 
 The initial bridge account is created from Broker Connections. Install the matching EA source from `bridges/mt4/TradeLinkBridge.mq4` or `bridges/mt5/TradeLinkBridge.mq5` in the user's own terminal, allow HTTPS requests to the app origin, and configure its one-time bridge secret. Test with a demo terminal before enabling a live account. Never put a broker password or bridge secret into public source control.
 
@@ -142,27 +142,26 @@ Analytics selections are held in browser state; a direct `/analytics` link opens
 ## Getting started
 
 ### Prerequisites
-- Node.js 20+ / Bun 1.3+
+- Node.js 20+ and npm 10+
 - SQLite (bundled) or PostgreSQL 14+ (production)
 
 ### Install & run
 
 ```bash
 # Install app and service dependencies
-bun install
-cd mini-services/trade-events && bun install && cd ../..
-cd mini-services/copy-worker && bun install && cd ../..
+npm install
 
 # Push DB schema (uses .env DATABASE_URL=file:./db/custom.db by default)
-bun run db:push
+npm run db:generate
+npm run db:push
 
 # Seed demo data (10 providers, ~3700 historical trades)
-bun scripts/seed.ts
+npm run db:seed
 # Or to reset and re-seed:
-bun scripts/reset-seed.ts
+npm run db:seed:reset
 
-# Run all services (Linux/Bun environment)
-.zscripts/dev.sh
+# Run all services
+npm run dev:stack
 ```
 
 Open http://localhost:3000. The first registered user becomes the admin and triggers sample marketplace-data seeding. Do not treat seeded providers or their performance as real trading accounts.
@@ -175,7 +174,7 @@ There is no default user. Register at the sign-in dialog — the first user beco
 
 ### Production readiness
 
-The app can be built with `bun run build` and deployed with its Next.js standalone output plus the two mini-services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader and Deriv order flows still need broker demo validation, and FXCM Trading Station integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
+The app can be built with `npm run build` and deployed with its Next.js standalone output plus the two Node.js services. Configure all secrets and service environment variables from `.env.example` in the deployment platform. This repository is not a turnkey production trading service: the Prisma datasource is currently SQLite, the deployment must provide a durable database and worker/event-service processes, cTrader and Deriv order flows still need broker demo validation, and FXCM Trading Station integration is unavailable. Validate terminal behavior with broker demo accounts before enabling any live account.
 
 ## Compliance & data integrity (Part 23, 4.5)
 

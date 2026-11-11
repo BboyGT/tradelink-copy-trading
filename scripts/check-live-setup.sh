@@ -68,7 +68,7 @@ echo "--- Checking database ---"
 if [ -f "db/custom.db" ]; then
   pass "Database exists"
 else
-  fail "Database does not exist — run: bun run db:push"
+  fail "Database does not exist — run: npm run db:push"
 fi
 
 echo ""
@@ -76,7 +76,7 @@ echo "--- Checking dev server ---"
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null | grep -q "200"; then
   pass "Dev server is running on port 3000"
 else
-  fail "Dev server is not running — run: bun run dev"
+  fail "Dev server is not running — run: npm run dev"
 fi
 
 echo ""
@@ -84,7 +84,7 @@ echo "--- Checking WebSocket service ---"
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/ 2>/dev/null | grep -qE "200|400"; then
   pass "WebSocket service is running on port 3003"
 else
-  warn "WebSocket service may not be running — check: cd mini-services/trade-events && bun run dev"
+  warn "WebSocket service may not be running — check: npm run dev:events"
 fi
 
 echo ""
@@ -106,8 +106,7 @@ if grep -q "DERIV_APP_ID" .env 2>/dev/null; then
     echo -e "${GREEN}✅ Ready for live Deriv data!${NC}"
     echo ""
     echo "Next steps:"
-    echo "  1. Start the dev server: bun run dev"
-    echo "  2. Start the WS service: cd mini-services/trade-events && bun run dev"
+    echo "  1. Start the dev stack: npm run dev:stack"
     echo "  3. Sign in to TRADE LINK"
     echo "  4. Go to Brokers → click Connect on Deriv"
     echo "  5. You'll be redirected to Deriv to log in"
@@ -142,7 +141,7 @@ else
   echo "    → Save the file"
   echo ""
   echo "  STEP 3: Restart the dev server"
-  echo "    → Run: bun run dev"
+  echo "    → Run: npm run dev:stack"
   echo ""
   echo "  STEP 4: Connect your Deriv account"
   echo "    → Sign in to TRADE LINK"

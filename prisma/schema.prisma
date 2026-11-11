@@ -56,6 +56,27 @@ model Session {
   @@index([userId])
 }
 
+// Fixed-window, database-backed authentication throttling. The key is an HMAC,
+// never an email address or IP address, and window rows are periodically pruned.
+model AuthRateLimitBucket {
+  key       String
+  window    String
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@id([key, window])
+  @@index([expiresAt])
+}
+
+// Unique singleton claim prevents concurrent first registrations from both
+// receiving administrator privileges. Keep this row when the first admin is
+// suspended or deleted; initial setup must remain a one-time operation.
+model AdminBootstrapClaim {
+  key       String   @id @default("initial-admin")
+  userId    String   @unique
+  createdAt DateTime @default(now())
+}
+
 // =============================================================
 // PART 3, 21.2 — PROVIDER MARKETPLACE
 // =============================================================

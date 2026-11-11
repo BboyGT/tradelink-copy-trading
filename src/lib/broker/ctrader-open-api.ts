@@ -30,7 +30,7 @@ async function openApiRequests(auth: CTraderAuth, requests: RequestSpec[]): Prom
   if (!accountId || !auth.accessToken || !clientId || !clientSecret) throw new Error("cTrader account or application credentials are missing");
 
   return new Promise<Json[]>((resolve, reject) => {
-    const requestIds = requests.map(() => randomUUID());
+    const requestIds: string[] = requests.map(() => randomUUID());
     const results = new Map<string, Json>();
     let stage: "application" | "account" | "requests" = "application";
     let settled = false;

@@ -3,33 +3,55 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hash } from "@/lib/crypto";
 import { audit } from "@/lib/auth";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const email = body.email?.toLowerCase().trim();
-    const password = body.password;
-    const name = body.name?.trim();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid registration request" }, { status: 400 });
+    }
+    const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
 
-    if (!email || !password || password.length < 6) {
-      return NextResponse.json({ error: "Email and password (min 6 chars) required" }, { status: 400 });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || password.length < 12 || password.length > 128 || name.length > 80) {
+      return NextResponse.json({ error: "Enter a valid email, a password of 12–128 characters, and a name no longer than 80 characters." }, { status: 400 });
+    }
+
+    const clientIp = (req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",").at(-1) ?? "unknown").trim().slice(0, 128);
+    const [ipLimit, emailLimit] = await Promise.all([
+      consumeRateLimit("register-ip", clientIp, 60 * 60 * 1000, 10),
+      consumeRateLimit("register-email", email, 24 * 60 * 60 * 1000, 3),
+    ]);
+    if (!ipLimit.allowed || !emailLimit.allowed) {
+      const retryAfterSeconds = Math.max(ipLimit.allowed ? 0 : ipLimit.retryAfterSeconds, emailLimit.allowed ? 0 : emailLimit.retryAfterSeconds);
+      return NextResponse.json({ error: "Too many account creation attempts. Try again later." }, {
+        status: 429, headers: { "Retry-After": String(retryAfterSeconds), "Cache-Control": "no-store" },
+      });
     }
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+      return NextResponse.json({ error: "An account with these details could not be created." }, { status: 409 });
     }
 
-    const userCount = await db.user.count();
-    const isFirstUser = userCount === 0;
-
-    const user = await db.user.create({
-      data: {
-        email,
-        name: name ?? null,
-        passwordHash: hash(password),
-        role: isFirstUser ? "admin" : "user",
-      },
+    const passwordHash = await hash(password);
+    const { user, isFirstUser } = await db.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email, name: name || null, passwordHash, role: "user" },
+      });
+      const claim = await tx.$queryRaw<Array<{ userId: string }>>`
+        INSERT INTO "AdminBootstrapClaim" ("key", "userId")
+        VALUES ('initial-admin', ${created.id})
+        ON CONFLICT ("key") DO NOTHING
+        RETURNING "userId"
+      `;
+      const first = claim.length > 0;
+      const user = first
+        ? await tx.user.update({ where: { id: created.id }, data: { role: "admin" } })
+        : created;
+      return { user, isFirstUser: first };
     });
 
     // Auto-seed demo data on first user (idempotent)
@@ -46,7 +68,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: user.id, email: user.email });
   } catch (e: any) {
-    console.error("[register]", e);
-    return NextResponse.json({ error: e.message ?? "Internal error" }, { status: 500 });
+    if (e?.code === "P2002") return NextResponse.json({ error: "An account with these details could not be created." }, { status: 409 });
+    console.error("[register] request failed", e instanceof Error ? e.message : "unknown error");
+    return NextResponse.json({ error: "Registration is temporarily unavailable." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }

@@ -393,8 +393,8 @@ function AdminDashboard() {
                 </TableHeader>
                 <TableBody>
                   {(integrationsData?.platforms ?? []).map((p: any) => {
-                    const caps = (p.capabilities ?? {}) as Record<string, boolean>;
-                    const streaming = caps.streamingMode ?? "unavailable";
+                    const caps = (p.capabilities ?? {}) as Record<string, boolean | string>;
+                    const streaming = typeof caps.streamingMode === "string" ? caps.streamingMode : "unavailable";
                     return (
                       <TableRow key={p.id ?? p.code}>
                         <TableCell className="text-sm font-medium align-top">

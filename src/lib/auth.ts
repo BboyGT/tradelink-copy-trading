@@ -5,10 +5,12 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { consumeRateLimit } from "@/lib/rate-limit";
+import { isConfiguredSecret } from "@/lib/secret-utils";
 
 function getAuthSecret() {
   const secret = process.env.NEXTAUTH_SECRET;
-  if (secret && secret.length >= 32) return secret;
+  if (isConfiguredSecret(secret)) return secret;
   if (process.env.NODE_ENV === "production") throw new Error("NEXTAUTH_SECRET must be configured with at least 32 characters in production");
   return "tradelink-development-secret-only-change-before-deploy-2026";
 }
@@ -16,8 +18,9 @@ function getAuthSecret() {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 12 * 60 * 60,
   },
+  jwt: { maxAge: 12 * 60 * 60 },
   pages: {
     signIn: "/?view=auth",
   },
@@ -28,10 +31,18 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+      async authorize(credentials, request) {
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string" ||
+            credentials.email.length > 254 || credentials.password.length > 128) return null;
+        const email = credentials.email.toLowerCase().trim();
+        const clientIp = (request.headers?.["x-real-ip"] ?? request.headers?.["x-forwarded-for"]?.split(",").at(-1) ?? "unknown").trim().slice(0, 128);
+        const [emailLimit, ipLimit] = await Promise.all([
+          consumeRateLimit("login-email", email, 15 * 60 * 1000, 5),
+          consumeRateLimit("login-ip", clientIp, 5 * 60 * 1000, 30),
+        ]);
+        if (!emailLimit.allowed || !ipLimit.allowed) return null;
         const user = await db.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
+          where: { email },
         });
         if (!user || !user.passwordHash || user.status !== "active") return null;
         const ok = await compare(credentials.password, user.passwordHash);
@@ -101,7 +112,7 @@ export async function audit(args: {
   details?: Record<string, any>;
 }) {
   try {
-    const ip = headers().get("x-forwarded-for") ?? undefined;
+    const ip = (await headers()).get("x-real-ip") ?? undefined;
     await db.auditEvent.create({
       data: {
         userId: args.userId ?? null,

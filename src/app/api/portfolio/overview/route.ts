@@ -72,14 +72,14 @@ export async function GET() {
       })),
       activeReplications: configs.map((c) => ({
         id: c.id,
-        provider: c.provider.name,
+        provider: c.provider?.name ?? "Linked source account",
         brokerAccount: c.brokerAccount.accountLabel,
         brokerCode: c.brokerAccount.brokerCode,
         executionMode: c.executionMode,
         sizingMode: c.sizingMode,
         equityMultiplier: c.equityMultiplier,
         status: c.status,
-        health: c.provider.statistic?.maxDrawdownPct && c.provider.statistic.maxDrawdownPct > 25 ? "high_risk" : "healthy",
+        health: c.provider?.statistic?.maxDrawdownPct && c.provider.statistic.maxDrawdownPct > 25 ? "high_risk" : "healthy",
       })),
       allocations: allocations.map((a) => ({
         providerId: a.providerId,

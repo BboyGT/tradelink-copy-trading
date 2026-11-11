@@ -15,7 +15,9 @@ node_modules
 
 # next.js
 /.next/
+/.next-build/
 /out/
+/AGENTS.md
 
 # production
 /build

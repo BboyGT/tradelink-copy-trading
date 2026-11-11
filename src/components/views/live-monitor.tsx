@@ -41,6 +41,7 @@ const TYPE_STYLES: Record<TradeEvent["type"], string> = {
   open: "bg-info/15 text-info border-info/30",
   modify: "bg-warning/15 text-warning border-warning/30",
   close: "bg-loss/15 text-loss border-loss/30",
+  partial_close: "bg-warning/15 text-warning border-warning/30",
 };
 
 const STATUS_STYLES: Record<string, string> = {

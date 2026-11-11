@@ -5,12 +5,13 @@ const token = process.env.SCANNER_WORKER_TOKEN;
 const intervalMs = Math.max(1_000, Number(process.env.SCANNER_INTERVAL_MS ?? 3_000));
 let running = false;
 
+if (!token || token.length < 32) {
+  console.error("[copy-worker] SCANNER_WORKER_TOKEN must be configured with at least 32 characters.");
+  process.exit(1);
+}
+
 async function cycle() {
   if (running) return;
-  if (!token || token.length < 32) {
-    console.error("[copy-worker] Set SCANNER_WORKER_TOKEN to a random secret of at least 32 characters.");
-    return;
-  }
   running = true;
   try {
     const accountsResponse = await fetch(`${baseUrl}/api/monitoring/scan`, {
@@ -26,15 +27,19 @@ async function cycle() {
       if (!response.ok) console.error(`[copy-worker] account ${brokerAccountId} scan failed: HTTP ${response.status}`);
     }
   } catch (error) {
-    console.error("[copy-worker] cycle failed:", error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? `${error.message}${error.cause instanceof Error ? ` (${error.cause.message})` : ""}` : String(error);
+    console.error("[copy-worker] cycle failed:", message);
   } finally {
     running = false;
   }
 }
 
-console.log(`[copy-worker] polling ${baseUrl} every ${intervalMs}ms`);
-await cycle();
-setInterval(() => void cycle(), intervalMs);
+async function start() {
+  console.log(`[copy-worker] polling ${baseUrl} every ${intervalMs}ms`);
+  await cycle();
+  setInterval(() => void cycle(), intervalMs);
+  process.on("SIGINT", () => process.exit(0));
+  process.on("SIGTERM", () => process.exit(0));
+}
 
-process.on("SIGINT", () => process.exit(0));
-process.on("SIGTERM", () => process.exit(0));
+void start();
