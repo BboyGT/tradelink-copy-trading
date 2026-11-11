@@ -6,17 +6,15 @@ This document records the real integration boundary for Deriv, cTrader, MetaTrad
 
 The old connection route accepted placeholder credentials and could create fabricated demo accounts. That behavior has been disabled. The broker connection screen no longer collects broker passwords and explicitly reports when a provider flow is not available. The connector registry fails closed instead of returning simulated account state. FXCM is now included in the provider catalog.
 
-The MT terminal bridge, authenticated event service, persistent worker, and MT4/MT5 market-order/close/modify path are implemented in this checkout. Production execution still needs validation with actual broker terminals and deployment configuration. Deriv, cTrader, and FXCM callbacks, token refresh, account discovery, monitoring, and execution remain **not implemented**. No provider should be treated as connected or used for copy trading until its requirements are complete.
+The MT terminal bridge, authenticated event service, persistent worker, and MT4/MT5 market-order/close/modify path are implemented in this checkout. cTrader OAuth, token refresh, account verification, account snapshots, position reconciliation, and source monitoring are also implemented. cTrader is currently source-only; its order, close, and modification operations are deliberately disabled. Deriv OAuth linking is present, but contract monitoring and execution remain **not implemented**. FXCM account linking and trading remain **not implemented** pending an approved FCLite integration. Production behavior still requires validation with broker demo accounts and deployment configuration.
 
 ## Provider implementation contracts
 
 ### Deriv
 
-- Replace the legacy OAuth flow with Deriv OAuth 2.0 Authorization Code + PKCE. Keep `state` and `code_verifier` in short-lived, HttpOnly, same-site server cookies.
-- Exchange the code server-side and encrypt the resulting token and expiry metadata.
-- Discover authorized accounts through the current Trading API, obtain an account OTP, and establish the provider WebSocket using that OTP.
-- Model Deriv contracts explicitly. The existing generic forex `OrderRequest` cannot safely be translated into a Deriv options contract without symbol, contract type, duration, and stake mapping.
-- Refresh or repeat authorization according to Deriv's current token lifecycle.
+- Deriv OAuth 2.0 Authorization Code + PKCE, state/verifier cookies, server-side exchange, encrypted token storage, and authorized account discovery are implemented.
+- Contract monitoring and trading are not implemented. Deriv options require explicit symbol, contract type, duration, stake, and settlement mapping; they cannot safely be treated as generic forex positions.
+- Deriv access tokens have a limited lifetime and must be reauthorized when expired; the current connector does not run a contract session or copy trades.
 
 Official references: [OAuth 2.0](https://developers.deriv.com/docs/intro/oauth/), [authentication](https://developers.deriv.com/docs/intro/authentication/), [workflow](https://developers.deriv.com/docs/workflows/).
 
@@ -24,10 +22,11 @@ Official references: [OAuth 2.0](https://developers.deriv.com/docs/intro/oauth/)
 
 - Register and obtain approval for a cTrader Open API application and exact redirect URI.
 - Request `trading` scope only when trade execution is required; exchange the one-minute authorization code server-side and encrypt both access and refresh tokens.
-- Authenticate the application, enumerate account IDs, authorize the selected account, then implement Open API position reconciliation and order operations.
-- Use cTrader's official JSON-over-WebSocket envelope or the official Protobuf SDK. Keep its account ID and symbol IDs as provider-specific metadata.
+- Authenticate the application, enumerate accounts, authorize each selected account, fetch account/asset data, refresh OAuth tokens, and reconcile open positions using cTrader Open API JSON-over-WebSocket messages.
+- The current source connector normalizes cTrader's protocol volume by the symbol's lot size before mapping to MT4/MT5 lots. It monitors open positions periodically; cTrader cannot yet be selected as a destination because safe fill confirmation, post-fill protection, close, and modify flows remain unimplemented.
+- Keep cTrader account IDs and symbol IDs as provider-specific metadata. Use demo accounts to verify symbol aliases, volume rules, and reconciliation before production use.
 
-Official references: [authentication](https://help.ctrader.com/open-api/account-authentication/), [getting started](https://help.ctrader.com/open-api/), [register an application](https://help.ctrader.com/open-api/api-application/).
+Official references: [authentication and token refresh](https://help.ctrader.com/open-api/account-authentication/), [JSON messages](https://help.ctrader.com/open-api/sending-receiving-json/), [message models and volume units](https://help.ctrader.com/open-api/model-messages/), [getting started](https://help.ctrader.com/open-api/), [register an application](https://help.ctrader.com/open-api/api-application/).
 
 ### MT4 and MT5
 

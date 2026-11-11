@@ -6,6 +6,7 @@
 import type { BrokerCode, IntegrationCapability } from "@/lib/types";
 import { PLATFORM_CAPABILITIES } from "@/lib/types";
 import { TerminalBridgeConnector } from "./terminal-bridge";
+import { CTraderOpenApiConnector, loadCTraderAuth } from "./ctrader-open-api";
 
 export interface BrokerAccountInfo {
   accountId: string;
@@ -320,7 +321,7 @@ export class DerivConnector extends BaseMockConnector {
 
 export class CTraderConnector extends BaseMockConnector {
   readonly broker: BrokerCode = "ctrader";
-  capabilities() { return PLATFORM_CAPABILITIES.deriv_ctrader; }
+  capabilities() { return PLATFORM_CAPABILITIES.ctrader; }
 }
 
 export class MT4Connector extends BaseMockConnector {
@@ -339,7 +340,7 @@ export class MT5Connector extends BaseMockConnector {
 
 const CONNECTOR_REGISTRY: Record<BrokerCode, () => BrokerConnector> = {
   deriv: () => { throw new Error("Deriv production connector is not configured"); },
-  ctrader: () => { throw new Error("cTrader Open API connector is not configured"); },
+  ctrader: () => new CTraderOpenApiConnector(),
   mt4: () => { throw new Error("MT4 requires an account-specific terminal bridge"); },
   mt5: () => { throw new Error("MT5 requires an account-specific terminal bridge"); },
   fxcm: () => { throw new Error("FXCM FCLite connector is not configured"); },
@@ -368,6 +369,18 @@ export async function getAccountConnector(
 ): Promise<BrokerConnector> {
   const key = `${brokerCode}:${accountId}`;
   let connector = activeConnectors.get(key);
+  if (brokerCode === "ctrader") {
+    const auth = await loadCTraderAuth(accountId);
+    if (connector instanceof CTraderOpenApiConnector && connector.isAuthorized()) {
+      connector.replaceAuth(auth);
+      return connector;
+    }
+    connector = new CTraderOpenApiConnector(accountId);
+    const authResult = await connector.authorize({ ...credentials, auth });
+    if (!authResult.success) throw new Error(`Authorization failed: ${authResult.reason}`);
+    activeConnectors.set(key, connector);
+    return connector;
+  }
   if (connector && connector.isAuthorized()) return connector;
   connector = brokerCode === "mt4" || brokerCode === "mt5"
     ? new TerminalBridgeConnector(brokerCode, accountId)

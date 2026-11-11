@@ -190,6 +190,7 @@ export async function seedDemoData(): Promise<{ providers: number; trades: numbe
   // 1. Platforms
   const platformDefs: { code: string; name: string; kind: string; capabilities: IntegrationCapability }[] = [
     { code: "deriv", name: "Deriv Copy Trading", kind: "copy_trading", capabilities: PLATFORM_CAPABILITIES.deriv },
+    { code: "ctrader", name: "cTrader Open API", kind: "broker_native", capabilities: PLATFORM_CAPABILITIES.ctrader },
     { code: "deriv_ctrader", name: "Deriv cTrader Copy", kind: "copy_trading", capabilities: PLATFORM_CAPABILITIES.deriv_ctrader },
     { code: "ctrader_copy", name: "cTrader Copy", kind: "copy_trading", capabilities: PLATFORM_CAPABILITIES.ctrader_copy },
     { code: "mt4", name: "MetaTrader 4", kind: "broker_native", capabilities: PLATFORM_CAPABILITIES.mt4 },

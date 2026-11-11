@@ -5,6 +5,7 @@
 
 export type PlatformCode =
   | "deriv"
+  | "ctrader"
   | "deriv_ctrader"
   | "ctrader_copy"
   | "mt4"
@@ -155,7 +156,24 @@ export const PLATFORM_CAPABILITIES: Record<PlatformCode, IntegrationCapability> 
     accountEquity: false,
     accountBalance: false,
     streamingMode: "unavailable",
-    notes: "Modern OAuth and contract-specific trading adapter are not implemented",
+    notes: "Official OAuth account linking is available; contract monitoring and trading adapters are not implemented",
+  },
+  ctrader: {
+    providerDiscovery: false,
+    providerStatistics: false,
+    historicalTrades: false,
+    liveTradeEvents: false,
+    openPositions: true,
+    stopLossInfo: true,
+    takeProfitInfo: true,
+    partialClosures: true,
+    tradeExecution: false,
+    positionModification: false,
+    positionClosure: false,
+    accountEquity: true,
+    accountBalance: true,
+    streamingMode: "periodic",
+    notes: "OAuth/Open API account data and open position monitoring can be used as a source; destination execution is not enabled",
   },
   deriv_ctrader: {
     providerDiscovery: false,

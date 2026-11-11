@@ -24,7 +24,7 @@ import { hasServiceBearer } from "@/lib/service-auth";
 export async function GET(req: NextRequest) {
   if (!hasServiceBearer(req, "SCANNER_WORKER_TOKEN")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const accounts = await db.brokerAccount.findMany({
-    where: { status: "connected", terminalBridge: { is: { status: "connected" } }, sourceReplicationConfigs: { some: { status: "active" } } },
+    where: { status: "connected", OR: [{ terminalBridge: { is: { status: "connected" } } }, { brokerCode: "ctrader", authMethod: "oauth" }], sourceReplicationConfigs: { some: { status: "active" } } },
     select: { id: true }, orderBy: { lastSyncedAt: "asc" }, take: 100,
   });
   return NextResponse.json({ accountIds: accounts.map((account) => account.id) }, { headers: { "cache-control": "no-store" } });
@@ -74,8 +74,12 @@ export async function POST(req: NextRequest) {
           },
         );
 
-        const livePositions = await connector.getOpenPositions();
-
+        const [sourceInfo, livePositions] = await Promise.all([connector.getAccountInfo(), connector.getOpenPositions()]);
+        await db.brokerAccount.update({ where: { id: account.id }, data: {
+          currency: sourceInfo.currency, balance: sourceInfo.balance, equity: sourceInfo.equity,
+          margin: sourceInfo.margin, freeMargin: sourceInfo.freeMargin, leverage: sourceInfo.leverage,
+          accountType: sourceInfo.accountType, lastSyncedAt: new Date(),
+        } });
         const previousPositions = await db.sourcePosition.findMany({
           where: { replicationConfig: { sourceBrokerAccountId: account.id }, state: "open" },
           select: { id: true, externalPositionId: true, volume: true, stopLoss: true, takeProfit: true, instrument: true, direction: true, entryPrice: true, state: true },
@@ -130,14 +134,38 @@ export async function POST(req: NextRequest) {
                 totalErrors++;
                 continue;
               }
+              const destAccount = config.brokerAccount;
+              const [sourceSpec, destConnector, approvedMapping] = await Promise.all([
+                connector.getInstrumentSpec(event.instrument),
+                getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, {
+                  accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency,
+                }),
+                db.instrumentMapping.findFirst({ where: {
+                  sourceBroker: account.brokerCode, sourceSymbol: event.instrument,
+                  destBroker: destAccount.brokerCode, approved: true,
+                  OR: [{ userId: user.id }, { userId: null }],
+                } }),
+              ]);
+              const destSymbol = approvedMapping?.destSymbol ?? event.instrument;
+              const destSpec = await destConnector.getInstrumentSpec(destSymbol);
+              if (!sourceSpec || !destSpec || sourceSpec.contractSize <= 0 || destSpec.contractSize <= 0 || destSpec.volumeStep <= 0) {
+                totalErrors++;
+                console.error(`[mirror] missing contract or volume metadata for ${account.brokerCode}:${event.instrument} -> ${destAccount.brokerCode}:${destSymbol}`);
+                continue;
+              }
+              const minVolume = Math.max(destSpec.minVolume, config.minLotSize ?? destSpec.minVolume);
+              const maxVolume = Math.min(destSpec.maxVolume, config.maxLotSize ?? destSpec.maxVolume);
+              if (maxVolume < minVolume) { totalErrors++; continue; }
               const mirrorVolume = calculateMirrorVolume(
-                event, account.equity, config.brokerAccount.equity,
+                event, sourceInfo.equity, destAccount.equity,
                 config.sizingMode as any, config.equityMultiplier,
-                config.fixedLotSize ?? undefined, config.minLotSize ?? 0.01, config.maxLotSize ?? 100, 0.01,
+                config.fixedLotSize ?? undefined, minVolume, maxVolume, destSpec.volumeStep,
+                sourceSpec.contractSize / destSpec.contractSize,
+                config.riskPerTradePct ?? 1, destSpec.tickSize, destSpec.tickValue,
               );
               if (mirrorVolume <= 0) continue;
 
-              const externalTradeId = `bridge:${account.id}:${event.externalPositionId}:${event.openTime.getTime()}`;
+              const externalTradeId = `${account.brokerCode}:${account.id}:${event.externalPositionId}:${event.openTime.getTime()}`;
               let sourcePosition;
               try {
                 sourcePosition = await db.sourcePosition.create({
@@ -148,42 +176,59 @@ export async function POST(req: NextRequest) {
                   instrument: event.instrument, direction: event.direction,
                   entryPrice: event.entryPrice, volume: event.volume,
                   stopLoss: event.stopLoss, takeProfit: event.takeProfit,
-                  orderType: "market", openTime: event.openTime, state: "open", detectionLatencyMs,
+                  orderType: "market", openTime: event.openTime, state: "rejected", detectionLatencyMs,
                   },
                 });
               } catch (error: any) {
-                if (error?.code === "P2002") continue;
-                throw error;
+                if (error?.code !== "P2002") throw error;
+                sourcePosition = await db.sourcePosition.findUnique({ where: { replicationConfigId_externalTradeId: { replicationConfigId: config.id, externalTradeId } } });
+                if (!sourcePosition) throw error;
+                const priorDestination = await db.destinationPosition.findFirst({ where: { sourcePositionId: sourcePosition.id, brokerAccountId: config.brokerAccount.id, state: "open" } });
+                if (priorDestination) {
+                  if (sourcePosition.state !== "open") await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "open" } });
+                  continue;
+                }
               }
 
               try {
-                const destAccount = config.brokerAccount;
-                const destConnector = await getAccountConnector(
-                  destAccount.brokerCode as BrokerCode, destAccount.id,
-                  { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency },
-                );
                 const orderResult = await destConnector.placeOrder({
                   idempotencyKey: `copy-open:${config.id}:${sourcePosition.id}`,
-                  instrument: event.instrument, direction: event.direction,
+                  instrument: destSymbol, direction: event.direction,
                   volume: mirrorVolume, orderType: "market",
                   stopLoss: config.replicateStopLoss ? event.stopLoss : undefined,
                   takeProfit: config.replicateTakeProfit ? event.takeProfit : undefined,
                 });
 
                 if (orderResult.success) {
-                  await db.destinationPosition.create({
-                    data: {
-                      brokerAccountId: destAccount.id, sourcePositionId: sourcePosition.id,
-                      externalTradeId: orderResult.orderId, externalPositionId: orderResult.positionId,
-                      instrument: event.instrument, direction: event.direction,
-                      entryPrice: orderResult.executedPrice ?? event.entryPrice,
-                      volume: orderResult.executedVolume ?? mirrorVolume,
-                      stopLoss: config.replicateStopLoss ? event.stopLoss : null,
-                      takeProfit: config.replicateTakeProfit ? event.takeProfit : null,
-                      orderType: "market", openTime: new Date(), state: "open",
-                      executionDelayMs: orderResult.executionDelayMs,
-                    },
-                  });
+                  const priorDestination = await db.destinationPosition.findFirst({ where: { sourcePositionId: sourcePosition.id, brokerAccountId: destAccount.id, state: "open" } });
+                  if (priorDestination) {
+                    await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "open" } });
+                    continue;
+                  }
+                  try {
+                    await db.destinationPosition.create({
+                      data: {
+                        brokerAccountId: destAccount.id, sourcePositionId: sourcePosition.id,
+                        externalTradeId: orderResult.orderId, externalPositionId: orderResult.positionId,
+                        instrument: destSymbol, direction: event.direction,
+                        entryPrice: orderResult.executedPrice ?? event.entryPrice,
+                        volume: orderResult.executedVolume ?? mirrorVolume,
+                        stopLoss: config.replicateStopLoss ? event.stopLoss : null,
+                        takeProfit: config.replicateTakeProfit ? event.takeProfit : null,
+                        orderType: "market", openTime: new Date(), state: "open",
+                        executionDelayMs: orderResult.executionDelayMs,
+                      },
+                    });
+                  } catch (error: any) {
+                    if (error?.code !== "P2002") throw error;
+                    const concurrentDestination = await db.destinationPosition.findFirst({
+                      where: { sourcePositionId: sourcePosition.id, brokerAccountId: destAccount.id },
+                    });
+                    if (!concurrentDestination) throw error;
+                    await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "open" } });
+                    continue;
+                  }
+                  await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "open" } });
                   totalMirrored++;
                   await sendNotification(user.id, {
                     type: "trade_opened", title: "TRADE OPENED",
@@ -192,13 +237,18 @@ export async function POST(req: NextRequest) {
                   });
                 } else {
                   totalErrors++;
+                  await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "rejected" } });
                   await sendNotification(user.id, {
                     type: "replication_failed", title: "REPLICATION FAILED",
                     body: `${sourceName} | ${event.instrument} | ${orderResult.rejectionReason ?? "Unknown"}`,
                     severity: "error",
                   });
                 }
-              } catch (e: any) { totalErrors++; console.error("[mirror]", e.message); }
+              } catch (e: any) {
+                totalErrors++;
+                await db.sourcePosition.update({ where: { id: sourcePosition.id }, data: { state: "rejected" } }).catch(() => undefined);
+                console.error("[mirror]", e.message);
+              }
             }
           } else if (event.type === "close" && sourcePositions.length) {
             for (const sourcePos of sourcePositions) {
@@ -232,17 +282,22 @@ export async function POST(req: NextRequest) {
             let allDestinationsUpdated = true;
             for (const destPos of destPositions) {
               const closeRatio = event.previousVolume && event.previousVolume > 0 ? (event.previousVolume - event.volume) / event.previousVolume : 0;
-              const closeVolume = destPos.volume * closeRatio;
-              if (closeVolume > 0.01) {
+              const requestedCloseVolume = destPos.volume * closeRatio;
+              if (requestedCloseVolume > 0) {
                 try {
                   const destAccount = await db.brokerAccount.findUnique({ where: { id: destPos.brokerAccountId } });
                   if (!destAccount) { allDestinationsUpdated = false; continue; }
                   if (!destPos.externalPositionId) throw new Error("Destination position has no terminal ticket");
                   const destConnector = await getAccountConnector(destAccount.brokerCode as BrokerCode, destAccount.id, { accountId: destAccount.externalAccountId ?? undefined, startingBalance: destAccount.balance, currency: destAccount.currency });
+                  const destSpec = await destConnector.getInstrumentSpec(destPos.instrument);
+                  if (!destSpec || destSpec.volumeStep <= 0) throw new Error("Destination volume rules are unavailable");
+                  const closeVolume = Math.floor(requestedCloseVolume / destSpec.volumeStep + 1e-8) * destSpec.volumeStep;
+                  if (closeVolume < destSpec.minVolume) throw new Error("Partial close is smaller than the destination broker's minimum volume step");
                   const closeKey = `copy-partial:${config.id}:${sourcePos.id}:${destPos.id}:${event.volume}`;
                   const closeResult = await destConnector.closePosition(destPos.externalPositionId ?? "", closeVolume, closeKey);
                   if (!closeResult.success) throw new Error(closeResult.rejectionReason ?? "Terminal rejected partial close");
-                  await db.destinationPosition.update({ where: { id: destPos.id }, data: { volume: destPos.volume - closeVolume } });
+                  const remainingVolume = Math.max(0, destPos.volume - (closeResult.closedVolume ?? closeVolume));
+                  await db.destinationPosition.update({ where: { id: destPos.id }, data: remainingVolume < destSpec.minVolume ? { volume: 0, state: "closed", closeTime: new Date() } : { volume: remainingVolume } });
                 } catch (e: any) { totalErrors++; allDestinationsUpdated = false; console.error("[mirror] destination partial close failed", e.message); }
               }
             }

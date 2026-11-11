@@ -135,31 +135,31 @@ const RETAIL_BROKERS: RetailBroker[] = [
     code: "deriv",
     name: "Deriv",
     color: "#1e88e5",
-    blurb: "Deriv synthetic indices and forex. Current OAuth and account API adapter is being completed.",
+    blurb: "Official OAuth account linking. Trade monitoring and copying are not yet available for Deriv contracts.",
   },
   {
     code: "ctrader",
     name: "cTrader",
     color: "#00897b",
-    blurb: "Spotware cTrader Open API. Requires an approved app and OAuth account authorization.",
+    blurb: "Spotware OAuth and Open API account linking. cTrader trades can be copied to MT4/MT5; cTrader is not yet a destination.",
   },
   {
     code: "mt4",
     name: "MT4",
     color: "#43a047",
-    blurb: "MetaTrader 4 Expert Advisor bridge. Terminal pairing is not available yet.",
+    blurb: "Pair an MT4 terminal with the TradeLink Expert Advisor bridge to monitor and execute copied trades.",
   },
   {
     code: "mt5",
     name: "MT5",
     color: "#8e24aa",
-    blurb: "MetaTrader 5 Expert Advisor bridge. Terminal pairing is not available yet.",
+    blurb: "Pair an MT5 terminal with the TradeLink Expert Advisor bridge to monitor and execute copied trades.",
   },
   {
     code: "fxcm",
     name: "FXCM",
     color: "#d32f2f",
-    blurb: "FXCM FCLite authorization. Requires FXCM-issued OAuth application credentials.",
+    blurb: "Requires an FXCM-approved FCLite integration. Account linking and trade copying are not yet available.",
   },
 ];
 

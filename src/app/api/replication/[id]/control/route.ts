@@ -38,9 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!config.brokerAccount.isDemo && !config.brokerAccount.isLiveAuthorized) {
         return NextResponse.json({ error: "Live trading not authorized" }, { status: 403 });
       }
-      if (!config.sourceBrokerAccount || !["mt4", "mt5"].includes(config.sourceBrokerAccount.brokerCode) || !["mt4", "mt5"].includes(config.brokerAccount.brokerCode)) return NextResponse.json({ error: "Replication requires separate MT4/MT5 source and destination terminals" }, { status: 409 });
+      const sourceIsTerminal = !!config.sourceBrokerAccount && ["mt4", "mt5"].includes(config.sourceBrokerAccount.brokerCode);
+      const sourceIsCTrader = config.sourceBrokerAccount?.brokerCode === "ctrader" && config.sourceBrokerAccount.authMethod === "oauth";
+      if (!config.sourceBrokerAccount || (!sourceIsTerminal && !sourceIsCTrader) || !["mt4", "mt5"].includes(config.brokerAccount.brokerCode)) return NextResponse.json({ error: "Replication requires an MT4/MT5 terminal or cTrader OAuth source and an MT4/MT5 destination" }, { status: 409 });
       if (!process.env.SCANNER_WORKER_TOKEN || process.env.SCANNER_WORKER_TOKEN.length < 32) return NextResponse.json({ error: "Persistent copy worker is not configured" }, { status: 503 });
-      for (const account of [config.sourceBrokerAccount, config.brokerAccount]) {
+      const bridgeAccounts = sourceIsTerminal ? [config.sourceBrokerAccount, config.brokerAccount] : [config.brokerAccount];
+      for (const account of bridgeAccounts) {
         const bridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
         if (!bridge || bridge.status !== "connected" || !bridge.lastHeartbeatAt || Date.now() - bridge.lastHeartbeatAt.getTime() > 20_000) return NextResponse.json({ error: `${account.accountLabel} terminal is offline` }, { status: 409 });
       }

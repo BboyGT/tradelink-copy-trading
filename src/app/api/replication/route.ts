@@ -69,13 +69,17 @@ export async function POST(req: NextRequest) {
     if (!account) return NextResponse.json({ error: "Broker account not found" }, { status: 404 });
     if (!["mt4", "mt5"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose an MT4 or MT5 destination account" }, { status: 400 });
     const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected" } });
-    if (!sourceAccount || !["mt4", "mt5"].includes(sourceAccount.brokerCode)) {
-      return NextResponse.json({ error: "Choose a connected MT4 or MT5 source terminal" }, { status: 400 });
+    const sourceIsTerminal = sourceAccount && ["mt4", "mt5"].includes(sourceAccount.brokerCode);
+    const sourceIsCTrader = sourceAccount?.brokerCode === "ctrader" && sourceAccount.authMethod === "oauth";
+    if (!sourceAccount || (!sourceIsTerminal && !sourceIsCTrader)) {
+      return NextResponse.json({ error: "Choose a connected MT4/MT5 terminal or cTrader OAuth account as the source" }, { status: 400 });
     }
     if (sourceAccount.id === account.id) return NextResponse.json({ error: "Source and destination accounts must be different" }, { status: 400 });
-    const sourceBridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: sourceAccount.id } });
-    if (!sourceBridge || sourceBridge.status !== "connected" || !sourceBridge.lastHeartbeatAt || Date.now() - sourceBridge.lastHeartbeatAt.getTime() > 20_000) {
-      return NextResponse.json({ error: "The source MetaTrader terminal is offline" }, { status: 409 });
+    if (sourceIsTerminal) {
+      const sourceBridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: sourceAccount.id } });
+      if (!sourceBridge || sourceBridge.status !== "connected" || !sourceBridge.lastHeartbeatAt || Date.now() - sourceBridge.lastHeartbeatAt.getTime() > 20_000) {
+        return NextResponse.json({ error: "The source MetaTrader terminal is offline" }, { status: 409 });
+      }
     }
     const destinationBridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
     if (!destinationBridge || destinationBridge.status !== "connected" || !destinationBridge.lastHeartbeatAt || Date.now() - destinationBridge.lastHeartbeatAt.getTime() > 20_000) {

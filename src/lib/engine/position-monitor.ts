@@ -183,6 +183,10 @@ export function calculateMirrorVolume(
   minVolume: number = 0.01,
   maxVolume: number = 100,
   volumeStep: number = 0.01,
+  contractSizeRatio: number = 1,
+  riskPerTradePct: number = 1,
+  tickSize: number = 0,
+  tickValue: number = 0,
 ): number {
   if (event.type === "close") return 0;
 
@@ -195,11 +199,11 @@ export function calculateMirrorVolume(
   switch (sizingMode) {
     case "equity_ratio":
       if (sourceEquity > 0) {
-        destVolume = sourceVolume * (destinationEquity / sourceEquity) * multiplier;
+        destVolume = sourceVolume * (destinationEquity / sourceEquity) * multiplier * contractSizeRatio;
       }
       break;
     case "fixed_multiplier":
-      destVolume = sourceVolume * multiplier;
+      destVolume = sourceVolume * multiplier * contractSizeRatio;
       break;
     case "fixed_lot":
       destVolume = fixedLot ?? 0;
@@ -210,14 +214,20 @@ export function calculateMirrorVolume(
       }
       break;
     case "risk_based":
-      // Risk-based requires SL distance — use the event's SL if available
-      if (event.stopLoss && event.entryPrice) {
+      // Requires broker-specific account-currency tick value metadata. Fail
+      // closed when that metadata or a source stop is unavailable.
+      if (event.stopLoss && event.entryPrice && riskPerTradePct > 0 && tickSize > 0 && tickValue > 0) {
         const slDistance = Math.abs(event.entryPrice - event.stopLoss);
-        const riskAmount = destinationEquity * 0.01; // 1% risk default
-        destVolume = slDistance > 0 ? riskAmount / (slDistance * 1) : 0; // simplified tick value
+        const riskAmount = destinationEquity * riskPerTradePct / 100;
+        const riskPerLot = (slDistance / tickSize) * tickValue;
+        destVolume = slDistance > 0 && riskPerLot > 0 ? riskAmount / riskPerLot : 0;
       }
       break;
   }
+
+  // Never turn missing inputs or an unsupported sizing calculation into a
+  // minimum-lot trade merely because the broker enforces a positive minimum.
+  if (!Number.isFinite(destVolume) || destVolume <= 0 || !Number.isFinite(volumeStep) || volumeStep <= 0) return 0;
 
   // Round to volume step (round DOWN for partial closes, nearest for opens)
   if (event.type === "partial_close") {
@@ -226,8 +236,10 @@ export function calculateMirrorVolume(
     destVolume = Math.round(destVolume / volumeStep) * volumeStep;
   }
 
-  // Clamp to min/max
-  destVolume = Math.max(minVolume, Math.min(maxVolume, destVolume));
+  // Refuse volumes below broker minimum instead of rounding them up into a
+  // larger position than the sizing rule requested. Respect configured/broker caps.
+  if (!Number.isFinite(minVolume) || !Number.isFinite(maxVolume) || maxVolume < minVolume || destVolume < minVolume) return 0;
+  destVolume = Math.min(maxVolume, destVolume);
 
   return destVolume;
 }

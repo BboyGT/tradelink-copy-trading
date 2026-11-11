@@ -581,6 +581,7 @@ model DestinationPosition {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  @@unique([brokerAccountId, sourcePositionId])
   @@index([brokerAccountId, openTime])
 }
 

@@ -21,7 +21,7 @@ async function cycle() {
     for (const brokerAccountId of (accountIds ?? [])) {
       const response = await fetch(`${baseUrl}/api/monitoring/scan`, {
         method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({ brokerAccountId }), signal: AbortSignal.timeout(25_000),
+        body: JSON.stringify({ brokerAccountId }), signal: AbortSignal.timeout(60_000),
       });
       if (!response.ok) console.error(`[copy-worker] account ${brokerAccountId} scan failed: HTTP ${response.status}`);
     }

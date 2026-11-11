@@ -7,7 +7,7 @@ export async function seedSourceBaseline(configId: string, account: {
   id: string; brokerCode: string; externalAccountId: string | null;
   balance: number; currency: string; leverage?: number | null; accountType?: string | null;
 }) {
-  if (account.brokerCode !== "mt4" && account.brokerCode !== "mt5") throw new Error("A connected MetaTrader terminal is required as the source");
+  if (account.brokerCode !== "mt4" && account.brokerCode !== "mt5" && account.brokerCode !== "ctrader") throw new Error("A connected MT4/MT5 or cTrader account is required as the source");
   const connector = await getAccountConnector(account.brokerCode as BrokerCode, account.id, {
     accountId: account.externalAccountId ?? undefined,
     startingBalance: account.balance,

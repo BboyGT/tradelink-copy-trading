@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/encryption";
 import { requireUser } from "@/lib/auth";
+import { CTraderOpenApiConnector } from "@/lib/broker/ctrader-open-api";
 
 export type OAuthProvider = "deriv" | "ctrader" | "fxcm";
 const COOKIE = "broker_oauth_tx";
@@ -160,9 +161,15 @@ async function connectCTraderAccounts(userId: string, token: Record<string, any>
     // cTrader returns a deposit asset ID, not an ISO currency code, from account-list.
     // Do not display it as a currency or fabricate a balance before account-level
     // authorization and trader data retrieval are implemented.
-    await persistAccount({ userId, provider: "ctrader", accountId: id, label: `cTrader ${account.traderLogin ?? id}`,
-      currency: "N/A", balance: 0, isDemo: !account.isLive,
-      auth: { ...token, ctidTraderAccountId: id, isLive: !!account.isLive } });
+    const auth = { ...token, expiresAt: Date.now() + Number(token.expiresIn ?? 0) * 1000, ctidTraderAccountId: id, isLive: !!account.isLive };
+    const connector = new CTraderOpenApiConnector();
+    const authorization = await connector.authorize({ auth });
+    if (!authorization.success) throw new Error(authorization.reason ?? "cTrader account authorization failed");
+    try {
+      const info = await connector.getAccountInfo();
+      await persistAccount({ userId, provider: "ctrader", accountId: id, label: `cTrader ${account.traderLogin ?? id}`,
+        currency: info.currency, balance: info.balance, equity: info.equity, isDemo: info.isDemo, auth });
+    } finally { await connector.disconnect(); }
   }
   return uniqueAccounts.length;
 }

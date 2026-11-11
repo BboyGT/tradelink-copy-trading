@@ -19,9 +19,9 @@ The previous walkthrough described the original demo-only single-page prototype.
 2. The user installs the corresponding EA in their own broker terminal and configures the HTTPS origin and secret.
 3. The EA posts account and open-position snapshots. The application stores the secret hash, heartbeat, and position snapshots.
 4. The persistent copy worker scans connected source accounts, compares snapshots, and creates position events.
-5. Active auto-replication configurations map a source position to an MT4/MT5 destination. The app queues a command with an expiry and waits for the terminal's acknowledgement before recording a successful result.
+5. Active auto-replication configurations accept an MT4/MT5 terminal or an OAuth-linked cTrader account as the source and an MT4/MT5 terminal as the destination. The app queues a command with an expiry and waits for the terminal's acknowledgement before recording a successful result.
 6. Unavailable connectors, stale heartbeats, unsupported instruments, non-market order types, and failed terminal commands fail closed.
 
 ## Integration limits
 
-Deriv, cTrader, and FXCM are present in the provider catalog but currently have no production OAuth callback, persistent account session, source monitor, or execution adapter. Their UI must not imply they are connected. MT terminal copying is limited to the behavior stated in the root README and `BROKER-INTEGRATIONS.md`; symbol normalization, durable retry records, and historical reconciliation are still needed before production live use.
+Deriv and FXCM are present in the provider catalog but cannot currently be used for replication. cTrader account linking, token refresh, snapshots, and source position monitoring are implemented; cTrader destination execution is still disabled. MT terminal copying is limited to the behavior stated in the root README and `BROKER-INTEGRATIONS.md`; broker demo validation, broader symbol mapping, and historical reconciliation are still needed before production live use.
