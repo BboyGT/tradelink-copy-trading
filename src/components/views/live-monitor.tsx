@@ -371,7 +371,7 @@ function EventRow({ event }: { event: TradeEvent }) {
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-sm font-medium tnum">{formatNumber(event.volume, 2)} lots</div>
+          <div className="text-sm font-medium tnum">{formatNumber(event.volume, 2)} {event.brokerCode === "deriv" ? "stake" : "lots"}</div>
           <div className="text-[11px] text-muted-foreground tnum">
             @ {formatNumber(event.entryPrice, event.entryPrice > 1000 ? 2 : 5)}
           </div>
