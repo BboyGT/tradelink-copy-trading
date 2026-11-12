@@ -210,8 +210,11 @@ async function cTraderAccountList(host: string, accessToken: string): Promise<Re
 
 export async function handleProviderCallback(request: NextRequest, provider: OAuthProvider) {
   const context = readContext(request, provider);
+  // Use the public/canonical site URL for the browser redirect. The inbound
+  // callback may reach this server through an internal address such as 0.0.0.0.
+  const appOrigin = process.env.NEXTAUTH_URL ?? request.nextUrl.origin;
   const finish = (status: string, message: string) => {
-    const response = NextResponse.redirect(new URL(`/broker-connections?oauth_${status}=${encodeURIComponent(message)}`, request.nextUrl.origin));
+    const response = NextResponse.redirect(new URL(`/broker-connections?oauth_${status}=${encodeURIComponent(message)}`, appOrigin));
     response.cookies.set(COOKIE, "", { path: `/api/brokers/${provider}/callback`, maxAge: 0 });
     return response;
   };
