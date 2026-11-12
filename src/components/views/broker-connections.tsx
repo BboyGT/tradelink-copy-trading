@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -236,6 +236,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
   const setView = useNavStore((s) => s.setView);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const oauthNoticeHandled = useRef(false);
 
   const { data: accountsData, isLoading } = useQuery({
     queryKey: ["broker-accounts"],
@@ -249,6 +250,24 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
   const selectedCount = accounts.filter((account) => account.isSelectedForCopy).length;
   const derivDemoCount = derivAccounts.filter((account) => account.isDemo).length;
   const derivLiveCount = derivAccounts.filter((account) => !account.isDemo).length;
+
+  useEffect(() => {
+    if (oauthNoticeHandled.current || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("oauth_success");
+    const error = params.get("oauth_error");
+    if (!success && !error) return;
+
+    oauthNoticeHandled.current = true;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+    if (success) {
+      toast({ title: "Broker connected", description: `${success}. Your accounts are listed below.` });
+      void qc.invalidateQueries({ queryKey: ["broker-accounts"] });
+      onConnected();
+    } else if (error) {
+      toast({ title: "Broker connection failed", description: error.slice(0, 180), variant: "destructive" });
+    }
+  }, [onConnected, qc, toast]);
 
   // Dialog state
   const [retailDialogBroker, setRetailDialogBroker] = useState<RetailBroker | null>(null);
@@ -1491,7 +1510,7 @@ function AccountCard({
                   variant="outline"
                   className={`text-[10px] ${statusStyles[account.status] ?? statusStyles.disconnected}`}
                 >
-                  {account.status}
+                  {account.status === "connected" ? "Connected" : account.status}
                 </Badge>
               </div>
               <div className="text-[11px] text-muted-foreground mt-1 font-mono">
