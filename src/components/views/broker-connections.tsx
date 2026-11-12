@@ -242,7 +242,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
     queryKey: ["broker-accounts"],
     queryFn: fetchAccounts,
     enabled: !!user,
-    refetchInterval: 60000,
+    refetchInterval: (query) => query.state.data?.accounts.some((account) => account.status === "pending") ? 3000 : 60000,
   });
 
   const accounts = accountsData?.accounts ?? [];
@@ -439,6 +439,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
       {/* Retail broker - OAuth-style connect */}
       <ConnectRetailDialog
         broker={retailDialogBroker}
+        accounts={accounts}
         pending={connectMutation.isPending}
         onClose={() => setRetailDialogBroker(null)}
         onConnect={(payload) => connectMutation.mutate(payload)}
@@ -732,12 +733,14 @@ function RuleStat({ label, value, accent }: { label: string; value: string; acce
 
 function ConnectRetailDialog({
   broker,
+  accounts,
   pending,
   onClose,
   onConnect,
   onBridgeEnrolled,
 }: {
   broker: RetailBroker | null;
+  accounts: BrokerAccount[];
   pending: boolean;
   onClose: () => void;
   onConnect: (payload: ConnectPayload) => void;
@@ -763,6 +766,7 @@ function ConnectRetailDialog({
   // Reset state when broker changes
   const brokerCode = broker?.code;
   const brokerName = broker?.name ?? "";
+  const bridgeConnected = Boolean(bridgeEnrollment && accounts.some((account) => account.id === bridgeEnrollment.accountId && account.status === "connected"));
 
   // Default label derived from broker
   const effectiveLabel = accountLabel || (brokerCode ? `My ${brokerName} Account` : "");
@@ -816,7 +820,7 @@ function ConnectRetailDialog({
         if (!res.ok || !data.bridgeSecret) throw new Error(data.error ?? "Terminal pairing could not start.");
         setBridgeEnrollment({ accountId: data.account.id, secret: data.bridgeSecret, brokerCode: broker.code });
         onBridgeEnrolled();
-        toast({ title: "Terminal pairing ready", description: "Install the Expert Advisor, enter this one-time secret, then allow the terminal to connect." });
+        toast({ title: "Connecting to terminal", description: "Install the Expert Advisor and enter the one-time secret. This account will show Connected after its first heartbeat." });
         setOauthChecking(false);
         return;
       }
@@ -842,7 +846,7 @@ function ConnectRetailDialog({
       if (!response.ok || !data.bridgeSecret) throw new Error(data.error ?? "FXCM MT4 terminal pairing could not start.");
       setBridgeEnrollment({ accountId: data.account.id, secret: data.bridgeSecret, brokerCode: "mt4" });
       onBridgeEnrolled();
-      toast({ title: "FXCM MT4 pairing ready", description: "Use the FXCM MT4 terminal to complete the bridge setup." });
+      toast({ title: "Connecting to FXCM MT4", description: "Complete the bridge setup in your MT4 terminal. This account will show Connected after its first heartbeat." });
     } catch (error) {
       toast({ title: "FXCM MT4 unavailable", description: error instanceof Error ? error.message : "Terminal pairing could not start.", variant: "destructive" });
     } finally {
@@ -1055,10 +1059,12 @@ function ConnectRetailDialog({
           >
             {pending || oauthChecking ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : bridgeConnected ? (
+              <ShieldCheck className="h-4 w-4 mr-2" />
             ) : (
               <ExternalLink className="h-4 w-4 mr-2" />
             )}
-            {bridgeEnrollment ? "Bridge setup created" : brokerCode === "fxcm" ? "Trading Station unavailable" : `Continue to ${brokerName}`}
+            {bridgeEnrollment ? (bridgeConnected ? "Connected" : "Waiting for terminal") : brokerCode === "fxcm" ? "Trading Station unavailable" : `Continue to ${brokerName}`}
           </Button>
           {brokerCode === "fxcm" && !bridgeEnrollment && (
             <Button variant="outline" onClick={handleFxcmMt4Bridge} disabled={pending || oauthChecking}>
@@ -1308,6 +1314,14 @@ function AccountCard({
   const [livePositions, setLivePositions] = useState<any[] | null>(null);
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [savingSelection, setSavingSelection] = useState(false);
+  const previousStatus = useRef(account.status);
+
+  useEffect(() => {
+    if (previousStatus.current !== "connected" && account.status === "connected") {
+      toast({ title: "Broker connected", description: `${account.accountLabel} is online and ready to select.` });
+    }
+    previousStatus.current = account.status;
+  }, [account.accountLabel, account.status, toast]);
 
   const isPropFirm = ["ftmo", "fundednext", "myfundedfx", "the5ers", "propfirm"].includes(account.brokerCode) || !!account.propFirmType;
   const rules: PropFirmRules | undefined = isPropFirm && account.propFirmType
@@ -1429,6 +1443,7 @@ function AccountCard({
   const openPositionsCount = account.destinationPositions?.length ?? 0;
   const statusStyles: Record<string, string> = {
     connected: "bg-profit/15 text-profit border-profit/30",
+    pending: "bg-warning/15 text-warning border-warning/30",
     disconnected: "bg-black/40 text-muted-foreground border-white/5",
     expired: "bg-warning/15 text-warning border-warning/30",
     error: "bg-loss/15 text-loss border-loss/30",
@@ -1510,7 +1525,7 @@ function AccountCard({
                   variant="outline"
                   className={`text-[10px] ${statusStyles[account.status] ?? statusStyles.disconnected}`}
                 >
-                  {account.status === "connected" ? "Connected" : account.status}
+                  {account.status === "connected" ? "Connected" : account.status === "pending" ? "Waiting for terminal" : account.status}
                 </Badge>
               </div>
               <div className="text-[11px] text-muted-foreground mt-1 font-mono">
