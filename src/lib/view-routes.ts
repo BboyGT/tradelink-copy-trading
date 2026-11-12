@@ -3,7 +3,7 @@ import type { AppView } from "@/lib/types";
 const APP_VIEWS: AppView[] = [
   "dashboard", "discover", "analytics", "comparison", "portfolio", "live_monitor",
   "automated_trading", "trade_history", "backtesting", "risk_management",
-  "broker_connections", "notifications", "settings", "admin", "watchlists", "instrument_mapping",
+  "broker_connections", "notifications", "settings", "watchlists", "instrument_mapping",
 ];
 
 export function viewToPath(view: AppView): string {

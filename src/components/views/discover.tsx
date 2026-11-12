@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavStore } from "@/lib/nav-store";
 import { formatPct, formatNumber } from "@/lib/format";
-import { DataQualityBadge, HealthBadge, DemoBadge, ProfitPill } from "@/components/badges";
-import { Search, Filter, Star, ArrowUpRight, Users, Activity, TrendingDown } from "lucide-react";
+import { DataQualityBadge, HealthBadge } from "@/components/badges";
+import { Search, Star, ArrowUpRight } from "lucide-react";
 
 async function fetchProviders(params: { search?: string; platform?: string; sortBy?: string }) {
   const qs = new URLSearchParams();
@@ -23,29 +23,17 @@ async function fetchProviders(params: { search?: string; platform?: string; sort
   return res.json();
 }
 
-async function fetchPlatforms() {
-  const res = await fetch("/api/admin/integrations");
-  if (!res.ok) return { platforms: [] };
-  return res.json();
-}
-
-export function DiscoverView({ user, isLiveMode }: { user: any; isLiveMode?: boolean }) {
+export function DiscoverView({ user }: { user: any }) {
   const [search, setSearch] = useState("");
   const [platform, setPlatform] = useState("");
   const [sortBy, setSortBy] = useState("return");
   const selectProvider = useNavStore((s) => s.selectProvider);
   const setAuthOpen = useNavStore((s) => s.setAuthOpen);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["providers", search, platform, sortBy],
     queryFn: () => fetchProviders({ search, platform, sortBy }),
     refetchInterval: 60000,
-  });
-
-  const { data: platformsData } = useQuery({
-    queryKey: ["platforms"],
-    queryFn: fetchPlatforms,
-    staleTime: 5 * 60 * 1000,
   });
 
   const providers = data?.providers ?? [];
@@ -54,11 +42,9 @@ export function DiscoverView({ user, isLiveMode }: { user: any; isLiveMode?: boo
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            Discover providers <DemoBadge hideIfLive={isLiveMode} />
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Discover providers</h1>
           <p className="text-sm text-muted-foreground">
-            {data?.total ?? 0} providers across {platformsData?.platforms?.length ?? 6} platforms. Filter by performance, drawdown, win rate.
+            {data?.total ?? 0} published provider accounts across {data?.platforms?.length ?? 0} platforms.
           </p>
         </div>
       </div>
@@ -80,7 +66,7 @@ export function DiscoverView({ user, isLiveMode }: { user: any; isLiveMode?: boo
               <SelectTrigger><SelectValue placeholder="All platforms" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All platforms</SelectItem>
-                {(platformsData?.platforms ?? []).map((p: any) => (
+                {(data?.platforms ?? []).map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -106,10 +92,16 @@ export function DiscoverView({ user, isLiveMode }: { user: any; isLiveMode?: boo
             <Skeleton key={i} className="h-56 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <Card className="rm-glass">
+          <CardContent className="p-12 text-center text-sm text-muted-foreground">
+            Provider data could not be loaded. <Button variant="link" onClick={() => refetch()}>Try again</Button>
+          </CardContent>
+        </Card>
       ) : providers.length === 0 ? (
         <Card className="rm-glass">
           <CardContent className="p-12 text-center text-sm text-muted-foreground">
-            No providers match your filters.
+            No published provider accounts match your filters. Sample profiles are hidden. Real providers will appear here after their account data is connected and published.
           </CardContent>
         </Card>
       ) : (

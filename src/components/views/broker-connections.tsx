@@ -767,6 +767,14 @@ function ConnectRetailDialog({
 
   async function handleContinue() {
     if (!broker) return;
+    if (broker.code === "fxcm") {
+      toast({
+        title: "FXCM Trading Station is not available",
+        description: "This app does not yet have the approved FXCM Trading Station account adapter. Use the FXCM MT4 terminal bridge if your FXCM account runs on MT4.",
+        variant: "destructive",
+      });
+      return;
+    }
     setOauthChecking(true);
     try {
       if (broker.code === "mt4" || broker.code === "mt5") {
@@ -859,8 +867,10 @@ function ConnectRetailDialog({
             {brokerCode === "mt4" || brokerCode === "mt5"
               ? "MetaTrader accounts must pair through the terminal bridge. Do not enter your trading password in this website."
               : brokerCode === "fxcm"
-                ? "Trading Station accounts need an approved FXCM FCLite/OAuth integration. If your FXCM account is on MT4, connect it through the FXCM MT4 terminal bridge below."
-                : "This provider requires its official OAuth application and a completed account callback before an account can be linked."}
+                ? "FXCM Trading Station cannot be connected yet because the approved account adapter is not implemented. If your FXCM account is on MT4, use the FXCM MT4 terminal bridge below."
+                : brokerCode === "deriv"
+                  ? "This server cannot start Deriv authorization until DERIV_CLIENT_ID is set and its callback URL is registered with Deriv. The owner must configure the OAuth app on the server."
+                  : "This server cannot start cTrader authorization until CTRADER_CLIENT_ID and CTRADER_CLIENT_SECRET are set and its callback URL is registered with Spotware. The owner must configure the OAuth app on the server."}
           </div>
 
           {bridgeEnrollment && (
@@ -1010,7 +1020,7 @@ function ConnectRetailDialog({
           </Button>
           <Button
             onClick={handleContinue}
-            disabled={pending || oauthChecking || !!bridgeEnrollment}
+            disabled={pending || oauthChecking || !!bridgeEnrollment || brokerCode === "fxcm"}
             style={broker ? { background: broker.color, color: "#fff" } : undefined}
           >
             {pending || oauthChecking ? (
@@ -1018,7 +1028,7 @@ function ConnectRetailDialog({
             ) : (
               <ExternalLink className="h-4 w-4 mr-2" />
             )}
-            {bridgeEnrollment ? "Bridge setup created" : `Continue to ${brokerName}`}
+            {bridgeEnrollment ? "Bridge setup created" : brokerCode === "fxcm" ? "Trading Station unavailable" : `Continue to ${brokerName}`}
           </Button>
           {brokerCode === "fxcm" && !bridgeEnrollment && (
             <Button variant="outline" onClick={handleFxcmMt4Bridge} disabled={pending || oauthChecking}>

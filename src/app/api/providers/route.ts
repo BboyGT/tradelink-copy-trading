@@ -14,21 +14,10 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(url.searchParams.get("limit") ?? "50");
     const offset = parseInt(url.searchParams.get("offset") ?? "0");
 
-    // Check if user is in live mode (has a real broker account)
-    let isLiveMode = false;
-    if (user) {
-      const liveAccounts = await db.brokerAccount.count({
-        where: { userId: user.id, isDemo: false, status: "connected" },
-      });
-      isLiveMode = liveAccounts > 0;
-    }
-
-    const where: Prisma.ProviderWhereInput = {};
-
-    // In live mode, hide demo providers (those with externalId starting with "DEMO-")
-    if (isLiveMode) {
-      where.NOT = { externalId: { startsWith: "DEMO-" } };
-    }
+    // Generated marketplace records are never presented as real providers.
+    const where: Prisma.ProviderWhereInput = {
+      NOT: { externalId: { startsWith: "DEMO-" } },
+    };
 
     if (search) {
       where.OR = [
@@ -47,7 +36,7 @@ export async function GET(req: NextRequest) {
     if (sortBy === "recent") orderBy.push({ lastSyncedAt: "desc" });
     orderBy.push({ createdAt: "desc" });
 
-    const [providers, total] = await Promise.all([
+    const [providers, total, availablePlatforms] = await Promise.all([
       db.provider.findMany({
         where,
         include: {
@@ -60,6 +49,11 @@ export async function GET(req: NextRequest) {
         skip: offset,
       }),
       db.provider.count({ where }),
+      db.providerPlatform.findMany({
+        where: { providers: { some: { externalId: { not: { startsWith: "DEMO-" } } } } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
     // If user is logged in, attach subscription status
@@ -79,6 +73,7 @@ export async function GET(req: NextRequest) {
         health: p.healthRecords[0]?.status ?? "healthy",
       })),
       total,
+      platforms: availablePlatforms,
       offset,
       limit,
     });

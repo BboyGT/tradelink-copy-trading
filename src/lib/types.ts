@@ -451,7 +451,6 @@ export type AppView =
   | "broker_connections"
   | "notifications"
   | "settings"
-  | "admin"
   | "watchlists"
   | "instrument_mapping";
 
@@ -482,5 +481,4 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "watchlists", label: "Watchlists", icon: "Star", description: "Track providers without copying", primary: false },
   { id: "instrument_mapping", label: "Instruments", icon: "ArrowLeftRight", description: "Map instruments across brokers", primary: false },
   { id: "settings", label: "Settings", icon: "Settings", description: "Account & preferences" },
-  { id: "admin", label: "Admin", icon: "ShieldCheck", description: "System health & integrations" },
 ];

@@ -41,17 +41,9 @@ export async function POST(req: Request) {
       const created = await tx.user.create({
         data: { email, name: name || null, passwordHash, role: "user" },
       });
-      const claim = await tx.$queryRaw<Array<{ userId: string }>>`
-        INSERT INTO "AdminBootstrapClaim" ("key", "userId")
-        VALUES ('initial-admin', ${created.id})
-        ON CONFLICT ("key") DO NOTHING
-        RETURNING "userId"
-      `;
-      const first = claim.length > 0;
-      const user = first
-        ? await tx.user.update({ where: { id: created.id }, data: { role: "admin" } })
-        : created;
-      return user;
+      // Public signup must never grant site operator privileges to the first
+      // person who happens to register.
+      return created;
     });
 
     await audit({ userId: user.id, action: "user.register", result: "success" });

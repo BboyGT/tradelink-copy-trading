@@ -137,7 +137,6 @@ function MoreDropdown({
   const groups: { label: string; items: NavItem[] }[] = [
     { label: "Analysis", items: items.filter((i) => ["analytics", "comparison", "backtesting", "trade_history", "watchlists"].includes(i.id)) },
     { label: "Configuration", items: items.filter((i) => ["broker_connections", "instrument_mapping", "notifications", "settings"].includes(i.id)) },
-    { label: "System", items: items.filter((i) => i.id === "admin") },
   ].filter((g) => g.items.length > 0);
 
   const currentItem = items.find((i) => i.id === currentView);
@@ -255,11 +254,6 @@ function UserMenu({ user }: { user: { email: string; name?: string; role: string
         <div className="px-2 py-2 mb-1 border-b border-white/5">
           <div className="text-[12px] font-medium text-foreground truncate">{user.name ?? displayName}</div>
           <div className="text-[10px] text-muted-foreground font-mono truncate mt-0.5">{user.email}</div>
-          {user.role === "admin" && (
-            <span className="inline-flex items-center gap-1 mt-1.5 text-[9px] font-mono uppercase tracking-wider text-primary">
-              <ShieldCheck className="h-2.5 w-2.5" /> Admin
-            </span>
-          )}
         </div>
         <DropdownMenuItem
           onClick={() => setView("settings")}
@@ -323,7 +317,7 @@ export function TopNav({ user, unreadNotifications, connectedBrokers, onOpenNoti
     return () => mq.removeEventListener("change", onChange);
   }, [mobileNavOpen]);
 
-  const allItems = NAV_ITEMS.filter((i) => i.id !== "admin" || user?.role === "admin");
+  const allItems = NAV_ITEMS;
   const primaryItems = allItems.filter((i) => i.primary);
   const secondaryItems = allItems.filter((i) => !i.primary);
   const isCurrentInSecondary = secondaryItems.some((i) => i.id === view);

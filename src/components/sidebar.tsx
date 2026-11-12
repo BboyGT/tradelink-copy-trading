@@ -191,8 +191,8 @@ export function Sidebar({ user, unreadNotifications, connectedBrokers }: Sidebar
   const collapsed = useNavStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useNavStore((s) => s.toggleSidebar);
 
-  // Filter: admin item only shows for admins
-  const items = NAV_ITEMS.filter((i) => i.primary).filter((i) => i.id !== "admin" || user?.role === "admin");
+  // System administration is kept out of the customer navigation.
+  const items = NAV_ITEMS.filter((i) => i.primary);
 
   return (
     <TooltipProvider delayDuration={200}>

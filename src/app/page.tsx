@@ -22,7 +22,6 @@ import { RiskManagementView } from "@/components/views/risk-management";
 import { BrokerConnectionsView } from "@/components/views/broker-connections";
 import { NotificationsView } from "@/components/views/notifications";
 import { SettingsView } from "@/components/views/settings";
-import { AdminView } from "@/components/views/admin";
 import { WatchlistsView } from "@/components/views/watchlists";
 import { InstrumentMappingView } from "@/components/views/instrument-mapping";
 import { viewFromPath } from "@/lib/view-routes";
@@ -97,7 +96,7 @@ export default function Home({ initialView = "dashboard" }: { initialView?: AppV
   // before the session cookie has been read.
   useEffect(() => {
     if (isLoading) return;
-    const protectedViews = ["portfolio", "automated_trading", "risk_management", "broker_connections", "notifications", "settings", "admin"];
+    const protectedViews = ["portfolio", "automated_trading", "risk_management", "broker_connections", "notifications", "settings"];
     if (!user && protectedViews.includes(view)) {
       // Redirect to dashboard instead of trapping the user on a protected view
       setView("dashboard");
@@ -108,7 +107,7 @@ export default function Home({ initialView = "dashboard" }: { initialView?: AppV
   const renderView = () => {
     switch (view) {
       case "dashboard": return <DashboardView user={user} stats={stats} hasLiveAccount={hasLiveAccount} />;
-      case "discover": return <DiscoverView user={user} isLiveMode={isLiveMode} />;
+      case "discover": return <DiscoverView user={user} />;
       case "analytics": return <AnalyticsView />;
       case "comparison": return <ComparisonView user={user} />;
       case "portfolio": return <PortfolioView user={user} />;
@@ -120,7 +119,6 @@ export default function Home({ initialView = "dashboard" }: { initialView?: AppV
       case "broker_connections": return <BrokerConnectionsView user={user} onConnected={refetch} />;
       case "notifications": return <NotificationsView user={user} />;
       case "settings": return <SettingsView user={user} />;
-      case "admin": return <AdminView user={user} />;
       case "watchlists": return <WatchlistsView user={user} />;
       case "instrument_mapping": return <InstrumentMappingView user={user} />;
       default: return <DashboardView user={user} stats={stats} />;
