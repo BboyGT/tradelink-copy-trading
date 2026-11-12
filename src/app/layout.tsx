@@ -5,7 +5,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "TRADE LINK — Copy-Trading Terminal",
+  title: "TRADE LINK - Copy-Trading Terminal",
   description:
     "Multi-page copy-trading dashboard with routed analytics, portfolio, risk controls, MT4 and MT5 terminal monitoring, and trade history.",
   keywords: ["copy trading", "multi-broker", "trade replication", "signal providers", "Deriv", "cTrader", "MetaTrader", "position terminal"],

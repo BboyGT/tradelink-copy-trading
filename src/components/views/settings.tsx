@@ -153,7 +153,7 @@ export function SettingsView({ user }: { user: any }) {
     }
   }
 
-  // 5) Account tab — name field saves via PUT
+  // 5) Account tab - name field saves via PUT
   async function saveAccount() {
     setSavingName(true);
     try {
@@ -172,7 +172,7 @@ export function SettingsView({ user }: { user: any }) {
     }
   }
 
-  // 6) Preferences tab — currency / sizing mode / execution mode save via PUT
+  // 6) Preferences tab - currency / sizing mode / execution mode save via PUT
   async function savePreferences() {
     setSavingPrefs(true);
     try {
@@ -305,7 +305,7 @@ export function SettingsView({ user }: { user: any }) {
             </CardContent>
           </Card>
 
-          {/* Per-provider preferences — placeholder until the provider picker UI lands. */}
+          {/* Per-provider preferences - placeholder until the provider picker UI lands. */}
           <Card className="rm-glass mt-3">
             <CardHeader>
               <CardTitle className="text-base">Per-provider preferences</CardTitle>
@@ -399,10 +399,10 @@ export function SettingsView({ user }: { user: any }) {
                       onChange={(e) => setSettings((prev) => ({ ...prev, reportingCurrency: e.target.value }))}
                       className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm font-mono uppercase tracking-wider text-white focus-visible:border-primary/40 focus-visible:ring-primary/20 focus-visible:ring-[3px] outline-none"
                     >
-                      <option value="USD">USD — US Dollar</option>
-                      <option value="EUR">EUR — Euro</option>
-                      <option value="GBP">GBP — Pound Sterling</option>
-                      <option value="JPY">JPY — Japanese Yen</option>
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="GBP">GBP - Pound Sterling</option>
+                      <option value="JPY">JPY - Japanese Yen</option>
                     </select>
                     <p className="text-[10px] text-muted-foreground">Monetary performance is converted using recorded exchange-rate data; original amounts are always retained.</p>
                   </div>

@@ -1,6 +1,6 @@
 // Provider change-tracking snapshots (Part 22.3)
-// GET  — public: returns a provider's change snapshots, newest first.
-// POST — admin only: creates a new snapshot by reading the provider's
+// GET  - public: returns a provider's change snapshots, newest first.
+// POST - admin only: creates a new snapshot by reading the provider's
 //        current statistics and persisting them as a ProviderChangeSnapshot.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -23,7 +23,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Public read — change tracking is a marketplace signal, not a secret.
+    // Public read - change tracking is a marketplace signal, not a secret.
     // We still call getCurrentUser() so logged-in viewers can be audited
     // downstream if needed, but no auth wall here.
     await getCurrentUser().catch(() => null);
@@ -78,7 +78,7 @@ export async function POST(
     const riskProfile = deriveRiskProfile(drawdownPct);
 
     // The ProviderChangeSnapshot schema does not have a dedicated profitFactor
-    // column, so we surface it inside the notes field — keeping the snapshot
+    // column, so we surface it inside the notes field - keeping the snapshot
     // self-describing while preserving the values the task asks us to capture.
     const notesParts: string[] = [];
     if (profitFactor !== null) {

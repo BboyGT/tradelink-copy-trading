@@ -165,7 +165,7 @@ export function AdminView({ user }: { user: any }) {
             <h2 className="text-lg font-semibold">Admin access required</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               This page is restricted to administrators. Administrators monitor system
-              health, integration capabilities and audit trails — but never have access
+              health, integration capabilities and audit trails - but never have access
               to user broker credentials or private trading information.
             </p>
             {!user ? (
@@ -217,7 +217,7 @@ function AdminDashboard() {
     queryFn: () => fetchAudit(auditLimit),
   });
 
-  // Deriv OAuth status — drives the "configured / not configured" badge in the
+  // Deriv OAuth status - drives the "configured / not configured" badge in the
   // Deriv Provider Import card. We don't blow up the whole dashboard if this
   // fails; the card just shows "not configured".
   const {
@@ -306,7 +306,7 @@ function AdminDashboard() {
           </h1>
           <p className="text-sm text-muted-foreground">
             System health, integration capability registry and audit trail. Signed in
-            as <span className="text-foreground font-medium">{health?.admin?.email ?? "—"}</span>.
+            as <span className="text-foreground font-medium">{health?.admin?.email ?? "-"}</span>.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={refreshAll}>
@@ -367,7 +367,7 @@ function AdminDashboard() {
               </CardTitle>
               <CardDescription className="text-xs">
                 Per-platform feature matrix. An integration is never marked as
-                fully functional when only some features work — partial capability is
+                fully functional when only some features work - partial capability is
                 shown explicitly.
               </CardDescription>
             </div>
@@ -462,7 +462,7 @@ function AdminDashboard() {
             </div>
           )}
           <p className="text-[10px] text-muted-foreground pt-2">
-            Capabilities reflect what each platform API actually exposes — read-only
+            Capabilities reflect what each platform API actually exposes - read-only
             platforms (e.g. cTrader Copy) cannot execute trades even when configured as
             a destination.
           </p>
@@ -510,7 +510,7 @@ function AdminDashboard() {
             Discover page.
           </p>
 
-          {/* Result panel — only shows after a successful import */}
+          {/* Result panel - only shows after a successful import */}
           {derivImportMutation.data && (
             <div className="rounded-md border border-profit/30 bg-profit/10 p-3 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-profit">
@@ -572,7 +572,7 @@ function AdminDashboard() {
               Import Deriv Providers
             </Button>
             <span className="text-[10px] text-muted-foreground">
-              Hits <code className="font-mono text-foreground">/api/providers/import-deriv</code> —
+              Hits <code className="font-mono text-foreground">/api/providers/import-deriv</code> -
               admin only.
             </span>
           </div>
@@ -664,7 +664,7 @@ function AuditRow({ ev }: { ev: any }) {
         </Badge>
       </TableCell>
       <TableCell className="text-[11px] text-muted-foreground tnum whitespace-nowrap">
-        {ev.ipAddress ?? "—"}
+        {ev.ipAddress ?? "-"}
       </TableCell>
       <TableCell className="max-w-md">
         <button

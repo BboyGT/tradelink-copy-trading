@@ -1,4 +1,4 @@
-// TRADE LINK — Provider Analytics Engine (Part 4)
+// TRADE LINK - Provider Analytics Engine (Part 4)
 // Pure functions for performance, drawdown, behaviour, and risk analytics.
 // All functions are deterministic and testable.
 

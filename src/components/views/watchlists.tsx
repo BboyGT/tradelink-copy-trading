@@ -413,7 +413,7 @@ function ProviderMiniCard({
           value={
             stats?.winRate !== null && stats?.winRate !== undefined
               ? `${stats.winRate.toFixed(1)}%`
-              : "—"
+              : "-"
           }
         />
       </div>

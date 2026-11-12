@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     const passwordHash = await hash(password);
-    const { user, isFirstUser } = await db.$transaction(async (tx) => {
+    const user = await db.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: { email, name: name || null, passwordHash, role: "user" },
       });
@@ -51,22 +51,12 @@ export async function POST(req: Request) {
       const user = first
         ? await tx.user.update({ where: { id: created.id }, data: { role: "admin" } })
         : created;
-      return { user, isFirstUser: first };
+      return user;
     });
-
-    // Auto-seed demo data on first user (idempotent)
-    if (isFirstUser) {
-      const { seedDemoData } = await import("@/lib/seed");
-      try {
-        await seedDemoData();
-      } catch (e) {
-        console.error("[seed] failed:", e);
-      }
-    }
 
     await audit({ userId: user.id, action: "user.register", result: "success" });
 
-    return NextResponse.json({ id: user.id, email: user.email });
+    return NextResponse.json({ id: user.id, email: user.email }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (e: any) {
     if (e?.code === "P2002") return NextResponse.json({ error: "An account with these details could not be created." }, { status: 409 });
     console.error("[register] request failed", e instanceof Error ? e.message : "unknown error");

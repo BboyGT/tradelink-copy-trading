@@ -16,7 +16,7 @@ async function fetchHasLiveAccount(): Promise<boolean> {
 }
 
 /**
- * DemoBadge — No longer renders anything.
+ * DemoBadge - No longer renders anything.
  * All demo data has been removed. This component is kept for compatibility
  * but always returns null. When you connect a live account, "● LIVE" shows
  * in the footer instead.
@@ -62,7 +62,7 @@ export function HealthBadge({ status }: { status: ProviderHealth | string }) {
 }
 
 export function ProfitPill({ value, suffix = "" }: { value: number | null; suffix?: string }) {
-  if (value === null) return <span className="text-muted-foreground">—</span>;
+  if (value === null) return <span className="text-muted-foreground">-</span>;
   const cls = value > 0 ? "text-profit" : value < 0 ? "text-loss" : "text-muted-foreground";
   const sign = value > 0 ? "+" : "";
   return <span className={cn("tnum font-medium", cls)}>{sign}{value.toFixed(2)}{suffix}</span>;

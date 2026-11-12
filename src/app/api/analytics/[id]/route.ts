@@ -1,4 +1,4 @@
-// Full analytics for a provider (Part 4) — performance + drawdown + behaviour + risk
+// Full analytics for a provider (Part 4) - performance + drawdown + behaviour + risk
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {

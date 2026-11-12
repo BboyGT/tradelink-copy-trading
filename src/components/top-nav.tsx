@@ -39,7 +39,7 @@ interface TopNavProps {
 }
 
 /**
- * Brand mark — TRADE LINK wordmark.
+ * Brand mark - TRADE LINK wordmark.
  * Uses the rm-glow-gold pulsing effect on the activity icon for a living feel.
  */
 function BrandMark() {
@@ -93,7 +93,7 @@ function NavTab({
         >
           <Icon className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", active && "text-primary")} />
           <span className="tracking-wide">{item.label}</span>
-          {/* Active indicator — bottom amber line */}
+          {/* Active indicator - bottom amber line */}
           {active && (
             <span className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 h-[2px] w-6 rounded-full bg-primary" />
           )}
@@ -118,7 +118,7 @@ function NavTab({
 }
 
 /**
- * "More" dropdown — secondary nav items grouped by category.
+ * "More" dropdown - secondary nav items grouped by category.
  */
 function MoreDropdown({
   items,
@@ -219,7 +219,7 @@ function MoreDropdown({
 }
 
 /**
- * User menu — avatar with dropdown for settings / sign out.
+ * User menu - avatar with dropdown for settings / sign out.
  */
 function UserMenu({ user }: { user: { email: string; name?: string; role: string } }) {
   const setView = useNavStore((s) => s.setView);
@@ -281,7 +281,7 @@ function UserMenu({ user }: { user: { email: string; name?: string; role: string
 }
 
 /**
- * Built by GT badge — homage to Lotwise.
+ * Built by GT badge - homage to Lotwise.
  */
 function BuiltByGTBadge() {
   return (
@@ -291,7 +291,7 @@ function BuiltByGTBadge() {
       rel="noopener noreferrer"
       className="fixed bottom-3 right-3 z-[60] group pointer-events-auto"
       aria-label="Design inspired by Lotwise Position Terminal"
-      title="Design language inspired by Lotwise Position Terminal — click to visit"
+      title="Design language inspired by Lotwise Position Terminal - click to visit"
     >
       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-primary/20 bg-black/60 backdrop-blur-sm text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground hover:text-primary hover:border-primary/40 transition-all hover:shadow-[0_0_20px_rgba(255,184,0,0.2)]">
         <ShieldCheck className="h-3 w-3" />
@@ -309,7 +309,7 @@ export function TopNav({ user, unreadNotifications, connectedBrokers, onOpenNoti
 
   // Auto-close the mobile nav sheet when the viewport crosses into lg+
   // (desktop breakpoint where the horizontal nav takes over).
-  // This makes the transition smooth — the sheet animates closed and the
+  // This makes the transition smooth - the sheet animates closed and the
   // desktop nav fades in, instead of both being visible momentarily.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -339,7 +339,7 @@ export function TopNav({ user, unreadNotifications, connectedBrokers, onOpenNoti
             <div className="hidden lg:block h-6 w-px bg-white/5 mx-3" />
           </div>
 
-          {/* Center: Primary nav — generous gap between tabs */}
+          {/* Center: Primary nav - generous gap between tabs */}
           <nav className="hidden lg:flex items-center gap-1.5">
             {primaryItems.map((item) => (
               <NavTab
@@ -363,7 +363,7 @@ export function TopNav({ user, unreadNotifications, connectedBrokers, onOpenNoti
             )}
           </nav>
 
-          {/* Right: Actions — consistent spacing */}
+          {/* Right: Actions - consistent spacing */}
           <div className="flex items-center gap-2 ml-auto">
             {/* Search button */}
             <Button

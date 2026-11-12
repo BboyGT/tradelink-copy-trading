@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { NotificationsSheet } from "@/components/notifications-sheet";
@@ -144,7 +145,11 @@ export default function Home({ initialView = "dashboard" }: { initialView?: AppV
         )}
       </main>
       <footer className="border-t border-border px-4 md:px-6 lg:px-8 py-3 text-[10px] text-muted-foreground flex items-center justify-between font-mono uppercase tracking-wider max-w-[1800px] mx-auto w-full">
-        <span>TRADE LINK — Multi-broker copy-trading terminal</span>
+        <span>TRADE LINK - Multi-broker copy-trading terminal</span>
+        <div className="flex items-center gap-4">
+          <Link href="/about" className="hover:text-foreground">About</Link>
+          <Link href="/packages" className="hover:text-foreground">Packages</Link>
+        </div>
         <span className="flex items-center gap-2">
           {hasLiveAccount ? (
             <span className="text-[10px] font-mono uppercase tracking-wider text-warning">● LIVE ACCOUNT · EXECUTION OFF</span>

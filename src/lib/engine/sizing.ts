@@ -1,6 +1,6 @@
-// TRADE LINK — Position Sizing Engine (Part 10)
+// TRADE LINK - Position Sizing Engine (Part 10)
 // Implements equity ratio, fixed multiplier, fixed lot, and risk-based sizing.
-// Pure functions — fully testable, no side effects.
+// Pure functions - fully testable, no side effects.
 
 import type { SizingMode } from "@/lib/types";
 
@@ -150,7 +150,7 @@ export function computePartialClosure(
   // What needs to be closed
   const closeVolumeRaw = destCurrentVolume - desiredDestRemaining;
 
-  // Round DOWN to volume step — never close more than the exact ratio
+  // Round DOWN to volume step - never close more than the exact ratio
   const closeVolume = Math.floor(closeVolumeRaw / volumeStep) * volumeStep;
   const keepVolume = destCurrentVolume - closeVolume;
   const unrepresentable = Math.abs(closeVolumeRaw - closeVolume) > 1e-9;

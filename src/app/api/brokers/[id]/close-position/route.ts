@@ -1,4 +1,4 @@
-// Close a destination position (emergency control — Part 12.2)
+// Close a destination position (emergency control - Part 12.2)
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser, audit } from "@/lib/auth";

@@ -48,7 +48,7 @@
 }
 
 /* ===========================================================================
-   TRADE LINK — Lotwise-inspired terminal aesthetic
+   TRADE LINK - Lotwise-inspired terminal aesthetic
    Dark charcoal surfaces, amber/gold accents, monospace numerics,
    subtle CRT effects. Inspired by lotwises.netlify.app.
    ========================================================================== */
@@ -145,7 +145,7 @@
     /* Enable alternate glyphs + tabular numbers for finance data */
     font-feature-settings: "ss01", "ss02", "cv01", "cv03", "tnum";
   }
-  /* Custom scrollbar — amber/gold terminal theme */
+  /* Custom scrollbar - amber/gold terminal theme */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -282,7 +282,7 @@
   animation: rm-flash-down 0.6s ease-out;
 }
 
-/* Stepper button — active state */
+/* Stepper button - active state */
 .rm-stepper:active {
   transform: scale(0.95);
 }
@@ -309,7 +309,7 @@
   font-feature-settings: "tnum" 1;
 }
 
-/* Sidebar active item — handled by inline classes (thin amber left bar + bg tint) */
+/* Sidebar active item - handled by inline classes (thin amber left bar + bg tint) */
 .sidebar-item-active {
   background: rgba(255, 184, 0, 0.08);
   position: relative;
@@ -336,7 +336,7 @@
   color: oklch(0.60 0 0);
 }
 
-/* Demo data badge — kept amber-toned to match design */
+/* Demo data badge - kept amber-toned to match design */
 .demo-badge {
   background: rgba(255, 184, 0, 0.15);
   color: oklch(0.78 0.13 85);

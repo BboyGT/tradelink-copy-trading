@@ -1,4 +1,4 @@
-// Notification helper — stores in DB and (in production) would dispatch to other channels.
+// Notification helper - stores in DB and (in production) would dispatch to other channels.
 import { db } from "@/lib/db";
 import type { NotificationType, NotificationSeverity } from "@/lib/types";
 

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { redactSecrets } from "@/lib/api-safety";
 
-// GET — list user's broker accounts
+// GET - list user's broker accounts
 export async function GET() {
   try {
     const user = await requireUser();
@@ -31,7 +31,7 @@ export async function GET() {
   }
 }
 
-// POST — connect a new broker account (demo mode)
+// POST - connect a new broker account (demo mode)
 export async function POST(req: NextRequest) {
   try {
     await requireUser();

@@ -1,4 +1,4 @@
-// TRADE LINK — Broker Connector Framework (Part 2.3, 2.4)
+// TRADE LINK - Broker Connector Framework (Part 2.3, 2.4)
 // Standardized connector interface so new brokers can be added without
 // changing the core trading engine. Mock connectors simulate broker
 // behaviour for the demo environment.
@@ -117,7 +117,7 @@ export interface BrokerConnector {
 }
 
 // ============================================================
-// BASE MOCK CONNECTOR — simulated broker for DEMO environment
+// BASE MOCK CONNECTOR - simulated broker for DEMO environment
 // ============================================================
 
 export abstract class BaseMockConnector implements BrokerConnector {

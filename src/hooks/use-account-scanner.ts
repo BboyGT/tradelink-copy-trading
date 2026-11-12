@@ -71,7 +71,7 @@ export function useAccountScanner(userId: string | null | undefined, interval = 
       setAccountsScanned(data.summary.accountsScanned);
       setLastScanAt(new Date());
     } catch (e) {
-      // Silent fail — scanning is a background process
+      // Silent fail - scanning is a background process
     } finally {
       setScanning(false);
     }

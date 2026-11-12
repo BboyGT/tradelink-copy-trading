@@ -1,4 +1,4 @@
-// TRADE LINK — Credential Encryption
+// TRADE LINK - Credential Encryption
 //
 // Broker access tokens and API credentials MUST be encrypted before storage.
 // This module uses AES-256-GCM (authenticated encryption) with a server-side key.
@@ -24,11 +24,11 @@ function getEncryptionKey(): Buffer {
   }
   if (process.env.NODE_ENV === "production") throw new Error("ENCRYPTION_KEY must be a unique random secret of at least 32 characters in production");
   if (envKey) console.warn("[security] ENCRYPTION_KEY is missing, too short, a template value, or duplicates NEXTAUTH_SECRET; using a temporary dev key.");
-  // Dev fallback — NOT secure for production. Generates a random key per process.
+  // Dev fallback - NOT secure for production. Generates a random key per process.
   // This means encrypted data becomes unreadable after a server restart in dev.
   if (!globalThis._tradelinkDevKey) {
     globalThis._tradelinkDevKey = randomBytes(KEY_LENGTH);
-    console.warn("[security] ENCRYPTION_KEY not set — using temporary dev key. Encrypted data will be lost on restart.");
+    console.warn("[security] ENCRYPTION_KEY not set - using temporary dev key. Encrypted data will be lost on restart.");
   }
   return globalThis._tradelinkDevKey as Buffer;
 }

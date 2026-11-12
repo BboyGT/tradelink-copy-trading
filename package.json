@@ -1,6 +1,17 @@
 {
   "name": "tradelink-copy-trading",
   "version": "0.2.1",
+  "description": "TRADE LINK multi-broker copy-trading dashboard and terminal bridge services",
+  "keywords": ["copy-trading", "mt4", "mt5", "ctrader", "deriv", "fxcm", "nextjs"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BboyGT/tradelink-copy-trading.git"
+  },
+  "homepage": "https://github.com/BboyGT/tradelink-copy-trading#readme",
+  "bugs": {
+    "url": "https://github.com/BboyGT/tradelink-copy-trading/issues"
+  },
+  "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

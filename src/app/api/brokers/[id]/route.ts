@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ account: redactSecrets(updated) });
     } catch (e) {
       // Fall back to stored data
-      return NextResponse.json({ account: redactSecrets(account), warning: "Live sync unavailable — showing last known state" });
+      return NextResponse.json({ account: redactSecrets(account), warning: "Live sync unavailable - showing last known state" });
     }
   } catch (e: any) {
     if (e.message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -79,7 +79,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 }
 
-// Authorize live trading on this account (Part 17 — explicit authorization)
+// Authorize live trading on this account (Part 17 - explicit authorization)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser();

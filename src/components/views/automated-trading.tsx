@@ -374,7 +374,7 @@ function ReplicationCard({
       case "risk_based":
         return `Risk ${c.riskPerTradePct ?? 1}% per trade`;
       default:
-        return SIZING_MODE_LABELS[c.sizingMode] ?? "—";
+        return SIZING_MODE_LABELS[c.sizingMode] ?? "-";
     }
   })();
 
@@ -543,7 +543,7 @@ function ReplicationCard({
 }
 
 // ============================================================================
-// Account flow badge — small pill showing broker + label + balance
+// Account flow badge - small pill showing broker + label + balance
 // ============================================================================
 
 function AccountFlowBadge({
@@ -710,7 +710,7 @@ function CreateReplicationWizard({
       }
       toast({
         title: "Replication created",
-        description: `Copying from ${sourceAccount?.accountLabel ?? "source"} to ${destinationAccount?.accountLabel ?? "destination"}. Starts paused — resume when ready.`,
+        description: `Copying from ${sourceAccount?.accountLabel ?? "source"} to ${destinationAccount?.accountLabel ?? "destination"}. Starts paused - resume when ready.`,
       });
       onCreated();
       close();
@@ -741,7 +741,7 @@ function CreateReplicationWizard({
       }}
     >
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-        {/* Header — wizard chrome */}
+        {/* Header - wizard chrome */}
         <div className="px-6 pt-6 pb-4 border-b border-white/5">
           <DialogTitle className="text-base font-semibold">
             New Replication
@@ -788,7 +788,7 @@ function CreateReplicationWizard({
           </div>
         </div>
 
-        {/* Body — current step */}
+        {/* Body - current step */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {state.step === 1 && (
             <StepSource
@@ -833,7 +833,7 @@ function CreateReplicationWizard({
           )}
         </div>
 
-        {/* Footer — nav buttons */}
+        {/* Footer - nav buttons */}
         <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={close}>
             Cancel

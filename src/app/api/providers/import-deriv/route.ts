@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireAdmin, audit } from "@/lib/auth";
 
 // Deriv API endpoint for listing copy trading providers
-// This is a public endpoint — no auth needed to list providers
+// This is a public endpoint - no auth needed to list providers
 const DERIV_API_URL = "https://api.deriv.com";
 
 export async function POST(req: NextRequest) {

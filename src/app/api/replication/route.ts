@@ -5,7 +5,7 @@ import { requireUser, audit } from "@/lib/auth";
 import type { ExecutionMode, SizingMode } from "@/lib/types";
 import { redactSecrets } from "@/lib/api-safety";
 
-// GET — list user's replication configs
+// GET - list user's replication configs
 export async function GET() {
   try {
     const user = await requireUser();
@@ -31,7 +31,7 @@ export async function GET() {
   }
 }
 
-// POST — create a new replication config
+// POST - create a new replication config
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();

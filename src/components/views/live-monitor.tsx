@@ -182,13 +182,13 @@ export function LiveMonitorView({ user, isLiveMode }: { user: any; isLiveMode?: 
             />
             <StatusCell
               label="Last event"
-              value={lastEventTime ? formatDateTime(lastEventTime) : "—"}
+              value={lastEventTime ? formatDateTime(lastEventTime) : "-"}
               icon={Clock}
               accent="text-muted-foreground"
             />
             <StatusCell
               label="Mirrored"
-              value={totalMirrored > 0 ? `${totalMirrored} trades` : "—"}
+              value={totalMirrored > 0 ? `${totalMirrored} trades` : "-"}
               icon={Zap}
               accent={totalMirrored > 0 ? "text-profit" : "text-muted-foreground"}
               dotClass={totalMirrored > 0 ? "bg-profit" : undefined}
@@ -208,8 +208,8 @@ export function LiveMonitorView({ user, isLiveMode }: { user: any; isLiveMode?: 
               </CardTitle>
               <CardDescription>
                 {isLiveMode
-                  ? "Monitoring your connected broker accounts for real trade events. Newest first — max 50 shown."
-                  : "Events from your connected accounts. Newest first — max 50 shown."}
+                  ? "Monitoring your connected broker accounts for real trade events. Newest first - max 50 shown."
+                  : "Events from your connected accounts. Newest first - max 50 shown."}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -382,11 +382,11 @@ function EventRow({ event }: { event: TradeEvent }) {
       <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
         <Field
           label="Stop loss"
-          value={event.stopLoss != null ? formatNumber(event.stopLoss, event.stopLoss > 1000 ? 2 : 5) : "—"}
+          value={event.stopLoss != null ? formatNumber(event.stopLoss, event.stopLoss > 1000 ? 2 : 5) : "-"}
         />
         <Field
           label="Take profit"
-          value={event.takeProfit != null ? formatNumber(event.takeProfit, event.takeProfit > 1000 ? 2 : 5) : "—"}
+          value={event.takeProfit != null ? formatNumber(event.takeProfit, event.takeProfit > 1000 ? 2 : 5) : "-"}
         />
         <Field
           label="Detection"

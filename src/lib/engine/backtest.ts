@@ -1,6 +1,6 @@
-// TRADE LINK — Backtesting / Simulation Engine (Part 6)
+// TRADE LINK - Backtesting / Simulation Engine (Part 6)
 // Simulates a provider's historical trades against a destination account config.
-// IMPORTANT: never label results as actual — these are always hypothetical.
+// IMPORTANT: never label results as actual - these are always hypothetical.
 
 import type { ProviderTrade } from "@prisma/client";
 import { computeSizing } from "@/lib/engine/sizing";
@@ -15,15 +15,15 @@ import type { SizingMode } from "@/lib/types";
  */
 export function getTickValue(instrument: string): number {
   const sym = instrument.toUpperCase();
-  // Metals / major FX — 1 pip == 1 unit of account per lot
+  // Metals / major FX - 1 pip == 1 unit of account per lot
   if (sym === "XAUUSD" || sym === "GOLD" || sym === "EURUSD" || sym === "GBPUSD") {
     return 1;
   }
-  // Crypto — smaller tick value (price quoted to 2 decimals)
+  // Crypto - smaller tick value (price quoted to 2 decimals)
   if (sym === "BTCUSD" || sym === "ETHUSD") {
     return 0.01;
   }
-  // Deriv synthetic indices — 0.1 per tick per lot
+  // Deriv synthetic indices - 0.1 per tick per lot
   if (sym.startsWith("VOLATILITY") || sym.startsWith("BOOM") || sym.startsWith("CRASH")) {
     return 0.1;
   }

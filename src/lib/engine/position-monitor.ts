@@ -1,4 +1,4 @@
-// TRADE LINK — Position Monitoring Engine (Part 7, 22)
+// TRADE LINK - Position Monitoring Engine (Part 7, 22)
 //
 // This module monitors the user's OWN broker accounts (copy trading accounts)
 // and detects position changes. When a change is detected, it generates trade
@@ -98,7 +98,7 @@ export function diffPositions(
     const curr = currentMap.get(prev.externalPositionId);
 
     if (!curr) {
-      // Position is gone — it was closed
+      // Position is gone - it was closed
       events.push({
         type: "close",
         externalPositionId: prev.externalPositionId,
@@ -115,11 +115,11 @@ export function diffPositions(
         detectionLatencyMs: 0,
       });
     } else {
-      // Position still exists — check for changes
+      // Position still exists - check for changes
       const volumeDiff = prev.volume - curr.volume;
 
       if (volumeDiff > 0.0001) {
-        // Volume decreased — partial close
+        // Volume decreased - partial close
         events.push({
           type: "partial_close",
           externalPositionId: curr.positionId,

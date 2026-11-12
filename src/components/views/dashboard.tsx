@@ -258,7 +258,7 @@ function LandingHero({ onSignIn, onGetStarted }: { onSignIn: () => void; onGetSt
         <FeatureCard
           icon={TrendingUp}
           title="Complete analytics"
-          desc="Performance, drawdown, behaviour, risk metrics. Every statistic carries a data-quality label — verified, calculated, estimated."
+          desc="Performance, drawdown, behaviour, risk metrics. Every statistic carries a data-quality label - verified, calculated, estimated."
         />
         <FeatureCard
           icon={Activity}

@@ -1,4 +1,4 @@
-// Instrument specs (Part 11) — list specs for a broker
+// Instrument specs (Part 11) - list specs for a broker
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 

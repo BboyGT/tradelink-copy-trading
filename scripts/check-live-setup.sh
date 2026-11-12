@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TRADE LINK — Live Data Setup Validator
+# TRADE LINK - Live Data Setup Validator
 # Run this script to check if everything is configured for real Deriv data.
 #
 # Usage: bash scripts/check-live-setup.sh
@@ -7,7 +7,7 @@
 set -e
 
 echo "============================================"
-echo "  TRADE LINK — Live Data Setup Checker"
+echo "  TRADE LINK - Live Data Setup Checker"
 echo "============================================"
 echo ""
 
@@ -50,7 +50,7 @@ echo ""
 if grep -q "DERIV_CLIENT_SECRET" .env 2>/dev/null; then
   pass "DERIV_CLIENT_SECRET is set"
 else
-  warn "DERIV_CLIENT_SECRET is not set (optional — only needed for server-side OAuth token exchange)"
+  warn "DERIV_CLIENT_SECRET is not set (optional - only needed for server-side OAuth token exchange)"
   echo "  If you set up an OAuth client in Deriv, add the secret to .env"
 fi
 
@@ -60,7 +60,7 @@ if grep -q "DERIV_REDIRECT_URI" .env 2>/dev/null; then
   REDIRECT=$(grep "DERIV_REDIRECT_URI" .env | cut -d'=' -f2 | tr -d '"')
   pass "DERIV_REDIRECT_URI is set: $REDIRECT"
 else
-  warn "DERIV_REDIRECT_URI is not set — will default to http://localhost:3000/api/brokers/deriv/callback"
+  warn "DERIV_REDIRECT_URI is not set - will default to http://localhost:3000/api/brokers/deriv/callback"
 fi
 
 echo ""
@@ -68,7 +68,7 @@ echo "--- Checking database ---"
 if [ -f "db/custom.db" ]; then
   pass "Database exists"
 else
-  fail "Database does not exist — run: npm run db:push"
+  fail "Database does not exist - run: npm run db:push"
 fi
 
 echo ""
@@ -76,7 +76,7 @@ echo "--- Checking dev server ---"
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null | grep -q "200"; then
   pass "Dev server is running on port 3000"
 else
-  fail "Dev server is not running — run: npm run dev"
+  fail "Dev server is not running - run: npm run dev"
 fi
 
 echo ""
@@ -84,7 +84,7 @@ echo "--- Checking WebSocket service ---"
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/ 2>/dev/null | grep -qE "200|400"; then
   pass "WebSocket service is running on port 3003"
 else
-  warn "WebSocket service may not be running — check: npm run dev:events"
+  warn "WebSocket service may not be running - check: npm run dev:events"
 fi
 
 echo ""
@@ -115,10 +115,10 @@ if grep -q "DERIV_APP_ID" .env 2>/dev/null; then
     echo ""
     echo "To import real providers: POST /api/providers/import-deriv"
   else
-    echo -e "${RED}❌ Not ready — DERIV_APP_ID needs a real value${NC}"
+    echo -e "${RED}❌ Not ready - DERIV_APP_ID needs a real value${NC}"
   fi
 else
-  echo -e "${RED}❌ Not ready — you need to set DERIV_APP_ID${NC}"
+  echo -e "${RED}❌ Not ready - you need to set DERIV_APP_ID${NC}"
   echo ""
   echo "Step-by-step guide:"
   echo ""
@@ -149,7 +149,7 @@ else
   echo "    → You'll be redirected to Deriv's login page"
   echo "    → Log in with your Deriv account"
   echo "    → Click 'Authorize' to grant TRADE LINK access"
-  echo "    → You'll be redirected back — your real account is now linked"
+  echo "    → You'll be redirected back - your real account is now linked"
   echo ""
   echo "  STEP 5: Import real providers"
   echo "    → Go to Admin → scroll to Deriv Import section"

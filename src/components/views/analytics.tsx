@@ -79,7 +79,7 @@ export function AnalyticsView() {
             <DemoBadge />
           </h1>
           <p className="text-sm text-muted-foreground">
-            {provider?.platformName ?? "—"} • {provider?.accountCurrency ?? "USD"} • Started {formatDateTime(provider?.accountCreatedAt)}
+            {provider?.platformName ?? "-"} • {provider?.accountCurrency ?? "USD"} • Started {formatDateTime(provider?.accountCreatedAt)}
           </p>
         </div>
         {provider && (
@@ -154,8 +154,8 @@ function PerformanceTab({ analytics, providerData }: any) {
         <MetricCard label="Lifetime return" value={formatPct(p.lifetimeReturnPct)} accent={p.lifetimeReturnPct > 0 ? "text-profit" : "text-loss"} icon={TrendingUp} />
         <MetricCard label="Monthly return" value={formatPct(p.monthlyReturnPct)} icon={TrendingUp} />
         <MetricCard label="Net profit" value={formatCurrency(p.netProfit, analytics.provider.accountCurrency)} accent={p.netProfit > 0 ? "text-profit" : "text-loss"} />
-        <MetricCard label="Profit factor" value={p.profitFactor !== null ? p.profitFactor.toFixed(2) : "—"} accent="text-info" />
-        <MetricCard label="Win rate" value={p.winRate !== null ? `${p.winRate.toFixed(1)}%` : "—"} />
+        <MetricCard label="Profit factor" value={p.profitFactor !== null ? p.profitFactor.toFixed(2) : "-"} accent="text-info" />
+        <MetricCard label="Win rate" value={p.winRate !== null ? `${p.winRate.toFixed(1)}%` : "-"} />
         <MetricCard label="Total trades" value={p.totalClosedTrades} />
         <MetricCard label="Avg winning" value={formatCurrency(p.avgWinningTrade, analytics.provider.accountCurrency)} accent="text-profit" />
         <MetricCard label="Avg losing" value={formatCurrency(p.avgLosingTrade, analytics.provider.accountCurrency)} accent="text-loss" />
@@ -178,7 +178,7 @@ function PerformanceTab({ analytics, providerData }: any) {
                     const pctChange = (v / (analytics.provider.startingBalance)) * 100;
                     return [`${formatCurrency(v, analytics.provider.accountCurrency)} (${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}%)`, "Net P/L"];
                   }}
-                  labelFormatter={(label: any) => `${label} — ${monthly.find((m: any) => m.month === label)?.trades ?? 0} trades`}
+                  labelFormatter={(label: any) => `${label} - ${monthly.find((m: any) => m.month === label)?.trades ?? 0} trades`}
                 />
                 <Bar dataKey="netProfit" radius={[2, 2, 0, 0]}>
                   {monthly.map((m: any, i: number) => (
@@ -197,7 +197,7 @@ function PerformanceTab({ analytics, providerData }: any) {
             <div className="text-sm text-muted-foreground py-8 text-center">No monthly data.</div>
           )}
 
-          {/* Trades for selected month — full breakdown */}
+          {/* Trades for selected month - full breakdown */}
           {selectedMonth && (() => {
             const monthTrades = (providerData?.recentTrades ?? [])
               .filter((t: any) => {
@@ -236,7 +236,7 @@ function PerformanceTab({ analytics, providerData }: any) {
                   <div className="p-2 rounded-md border border-white/5 bg-black/40">
                     <div className="rm-label">Net P/L</div>
                     <div className={`text-base font-mono font-semibold tnum ${monthData?.netProfit >= 0 ? "text-profit" : "text-loss"}`}>
-                      {monthData ? formatCurrency(monthData.netProfit, analytics.provider.accountCurrency) : "—"}
+                      {monthData ? formatCurrency(monthData.netProfit, analytics.provider.accountCurrency) : "-"}
                     </div>
                     <div className={`text-[10px] font-mono ${monthPct >= 0 ? "text-profit" : "text-loss"}`}>
                       {monthPct >= 0 ? "+" : ""}{monthPct.toFixed(2)}%
@@ -275,7 +275,7 @@ function PerformanceTab({ analytics, providerData }: any) {
 
                 {/* Trades table */}
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                  All trades — {monthTrades.length}
+                  All trades - {monthTrades.length}
                 </div>
                 <div className="border border-white/5 rounded-md rm-scroll">
                   <Table maxHeight="320px">
@@ -310,7 +310,7 @@ function PerformanceTab({ analytics, providerData }: any) {
                             </TableCell>
                             <TableCell className="text-right tnum text-xs">{t.volume.toFixed(2)}</TableCell>
                             <TableCell className="text-right tnum text-xs">{t.entryPrice.toFixed(5)}</TableCell>
-                            <TableCell className="text-right tnum text-xs">{t.exitPrice?.toFixed(5) ?? "—"}</TableCell>
+                            <TableCell className="text-right tnum text-xs">{t.exitPrice?.toFixed(5) ?? "-"}</TableCell>
                             <TableCell className={`text-right tnum text-xs font-medium ${(t.netProfit ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>
                               {(t.netProfit ?? 0) >= 0 ? "+" : ""}{(t.netProfit ?? 0).toFixed(2)}
                             </TableCell>
@@ -388,10 +388,10 @@ function DrawdownTab({ analytics }: any) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard label="Max drawdown" value={formatPct(dd.maxDrawdownPct)} accent="text-loss" icon={TrendingDown} />
         <MetricCard label="Current drawdown" value={formatPct(dd.currentDrawdownPct)} accent="text-warning" />
-        <MetricCard label="Recovery factor" value={dd.recoveryFactor !== null ? dd.recoveryFactor.toFixed(2) : "—"} accent="text-info" />
-        <MetricCard label="Largest losing streak" value={dd.largestLosingStreak ?? "—"} />
-        <MetricCard label="Longest DD (days)" value={dd.longestDrawdownDays ?? "—"} />
-        <MetricCard label="Avg recovery (days)" value={dd.avgRecoveryDays !== null ? dd.avgRecoveryDays.toFixed(1) : "—"} />
+        <MetricCard label="Recovery factor" value={dd.recoveryFactor !== null ? dd.recoveryFactor.toFixed(2) : "-"} accent="text-info" />
+        <MetricCard label="Largest losing streak" value={dd.largestLosingStreak ?? "-"} />
+        <MetricCard label="Longest DD (days)" value={dd.longestDrawdownDays ?? "-"} />
+        <MetricCard label="Avg recovery (days)" value={dd.avgRecoveryDays !== null ? dd.avgRecoveryDays.toFixed(1) : "-"} />
         <MetricCard label="Max DD monetary" value={formatCurrency(dd.maxDrawdownMonetary, analytics.provider.accountCurrency)} accent="text-loss" />
         <MetricCard label="Avg DD %" value={formatPct(dd.avgDrawdownPct)} />
       </div>
@@ -537,7 +537,7 @@ function RiskTab({ analytics }: any) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard label="Avg losing trade" value={formatCurrency(r.avgLosingTrade, analytics.provider.accountCurrency)} accent="text-loss" icon={TrendingDown} />
         <MetricCard label="Largest losing trade" value={formatCurrency(r.largestLosingTrade, analytics.provider.accountCurrency)} accent="text-loss" />
-        <MetricCard label="Avg risk/reward" value={r.avgRiskReward !== null ? r.avgRiskReward.toFixed(2) : "—"} accent="text-info" />
+        <MetricCard label="Avg risk/reward" value={r.avgRiskReward !== null ? r.avgRiskReward.toFixed(2) : "-"} accent="text-info" />
         <MetricCard label="Risk concentration" value={`${(r.riskConcentration * 100).toFixed(1)}%`} accent={r.riskConcentration > 0.5 ? "text-loss" : "text-profit"} />
         <MetricCard label="Position concentration" value={`${(r.positionConcentration * 100).toFixed(1)}%`} />
         <MetricCard label="Avg losing streak" value={r.avgLosingStreak.toFixed(1)} />
@@ -595,7 +595,7 @@ function TradesTab({ providerData }: any) {
                   </TableCell>
                   <TableCell className="text-right tnum text-sm">{t.volume.toFixed(2)}</TableCell>
                   <TableCell className="text-right tnum text-sm">{t.entryPrice.toFixed(5)}</TableCell>
-                  <TableCell className="text-right tnum text-sm">{t.exitPrice?.toFixed(5) ?? "—"}</TableCell>
+                  <TableCell className="text-right tnum text-sm">{t.exitPrice?.toFixed(5) ?? "-"}</TableCell>
                   <TableCell className={`text-right tnum text-sm font-medium ${(t.netProfit ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>
                     {(t.netProfit ?? 0) >= 0 ? "+" : ""}{(t.netProfit ?? 0).toFixed(2)}
                   </TableCell>
@@ -710,7 +710,7 @@ function ChangeTrackingTab({ providerId }: { providerId: string | null }) {
               <Tooltip
                 contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }}
                 formatter={(v: any, name: any) => {
-                  if (v === null || v === undefined) return ["—", name];
+                  if (v === null || v === undefined) return ["-", name];
                   return [`${v >= 0 ? "+" : ""}${v.toFixed(2)}%`, name === "returnPct" ? "Return" : name === "drawdownPct" ? "Drawdown" : "Win rate"];
                 }}
               />
@@ -758,10 +758,10 @@ function ChangeTrackingTab({ providerId }: { providerId: string | null }) {
                       {formatPct(s.returnPct ?? null)}
                     </TableCell>
                     <TableCell className="text-right tnum text-sm text-loss">
-                      {s.drawdownPct !== null && s.drawdownPct !== undefined ? `-${s.drawdownPct.toFixed(2)}%` : "—"}
+                      {s.drawdownPct !== null && s.drawdownPct !== undefined ? `-${s.drawdownPct.toFixed(2)}%` : "-"}
                     </TableCell>
                     <TableCell className="text-right tnum text-sm">
-                      {s.winRate !== null && s.winRate !== undefined ? `${s.winRate.toFixed(1)}%` : "—"}
+                      {s.winRate !== null && s.winRate !== undefined ? `${s.winRate.toFixed(1)}%` : "-"}
                     </TableCell>
                     <TableCell className="text-right tnum text-sm">
                       {formatNumber(s.avgVolume ?? null)}
@@ -774,7 +774,7 @@ function ChangeTrackingTab({ providerId }: { providerId: string | null }) {
                         s.riskProfile === "conservative" ? "text-profit" :
                         "text-muted-foreground"
                       }`}>
-                        {s.riskProfile ?? "—"}
+                        {s.riskProfile ?? "-"}
                       </span>
                     </TableCell>
                   </TableRow>

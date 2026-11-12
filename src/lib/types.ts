@@ -1,4 +1,4 @@
-// TRADE LINK — Core type definitions and enums
+// TRADE LINK - Core type definitions and enums
 // Used across frontend, API routes, and engine modules.
 
 // ============ PLATFORMS & BROKERS ============
@@ -26,7 +26,7 @@ export type BrokerCode =
   | "propfirm"
   | "external";
 
-// Prop firm rule presets — each prop firm has different rules
+// Prop firm rule presets - each prop firm has different rules
 export interface PropFirmRules {
   name: string;
   maxDailyLossPct: number;      // % of starting balance
@@ -207,7 +207,7 @@ export const PLATFORM_CAPABILITIES: Record<PlatformCode, IntegrationCapability> 
     accountEquity: true,
     accountBalance: true,
     streamingMode: "near_real_time",
-    notes: "cTrader Copy — read-only monitoring",
+    notes: "cTrader Copy - read-only monitoring",
   },
   mt4: {
     providerDiscovery: false,
@@ -464,7 +464,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  // Primary — shown directly in the top bar
+  // Primary - shown directly in the top bar
   { id: "dashboard", label: "Dashboard", icon: "LayoutDashboard", description: "Portfolio overview", primary: true },
   { id: "discover", label: "Discover", icon: "Compass", description: "Find signal providers", primary: true },
   { id: "live_monitor", label: "Live", icon: "Activity", description: "Real-time trade events", primary: true },
@@ -472,7 +472,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "automated_trading", label: "Replication", icon: "Bot", description: "Automated trading configs", primary: true },
   { id: "risk_management", label: "Risk", icon: "ShieldAlert", description: "Limits & emergency controls", primary: true },
 
-  // Secondary — accessible via "More" dropdown
+  // Secondary - accessible via "More" dropdown
   { id: "analytics", label: "Analytics", icon: "BarChart3", description: "Provider performance & drawdown" },
   { id: "comparison", label: "Compare", icon: "GitCompare", description: "Side-by-side providers" },
   { id: "backtesting", label: "Backtest", icon: "FlaskConical", description: "Simulate providers" },

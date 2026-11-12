@@ -1,4 +1,4 @@
-// TRADE LINK — Multi-broker copy-trading intelligence platform
+// TRADE LINK - Multi-broker copy-trading intelligence platform
 // Prisma schema. SQLite for dev environment; same model works with PostgreSQL
 // in production by changing the datasource provider.
 
@@ -12,7 +12,7 @@ datasource db {
 }
 
 // =============================================================
-// PART 18 — USERS, SESSIONS, ROLES
+// PART 18 - USERS, SESSIONS, ROLES
 // =============================================================
 
 model User {
@@ -78,7 +78,7 @@ model AdminBootstrapClaim {
 }
 
 // =============================================================
-// PART 3, 21.2 — PROVIDER MARKETPLACE
+// PART 3, 21.2 - PROVIDER MARKETPLACE
 // =============================================================
 
 model ProviderPlatform {
@@ -254,7 +254,7 @@ model ProviderRanking {
   category        String   // "best_risk_adjusted" | "most_consistent" | "lowest_drawdown" | "highest_verified_return" | "best_long_term" | "best_recovery" | "high_risk" | "insufficient_history" | "deteriorating"
   rank            Int
   score           Float
-  confidence      Float // 0..1 — data confidence score
+  confidence      Float // 0..1 - data confidence score
   reasonSummary   String
   strengths       String   @default("[]") // JSON array
   weaknesses      String   @default("[]")
@@ -310,7 +310,7 @@ model ProviderHealthRecord {
 }
 
 // =============================================================
-// PART 5, 20 — WATCHLISTS, COMPARISONS
+// PART 5, 20 - WATCHLISTS, COMPARISONS
 // =============================================================
 
 model Watchlist {
@@ -350,7 +350,7 @@ model ProviderComparison {
 }
 
 // =============================================================
-// PART 17, 2 — BROKER CONNECTIONS
+// PART 17, 2 - BROKER CONNECTIONS
 // =============================================================
 
 model BrokerAccount {
@@ -362,7 +362,7 @@ model BrokerAccount {
   externalAccountId String?
   currency        String   @default("USD")
   leverage        Float?
-  accountType     String?  // "hedging" | "netting" — advanced option, defaults to hedging
+  accountType     String?  // "hedging" | "netting" - advanced option, defaults to hedging
   isDemo          Boolean  @default(true)
   isLiveAuthorized Boolean @default(false) // explicit live trading authorization
   status          String   @default("disconnected") // "connected" | "disconnected" | "expired" | "error"
@@ -456,7 +456,7 @@ model AccountSnapshot {
 }
 
 // =============================================================
-// PART 11 — INSTRUMENT MAPPING
+// PART 11 - INSTRUMENT MAPPING
 // =============================================================
 
 model InstrumentSpec {
@@ -497,7 +497,7 @@ model InstrumentMapping {
 }
 
 // =============================================================
-// PART 8, 9 — REPLICATION ENGINE
+// PART 8, 9 - REPLICATION ENGINE
 // =============================================================
 
 model ReplicationConfig {
@@ -622,7 +622,7 @@ model ExecutionEvent {
 }
 
 // =============================================================
-// PART 12, 13 — RISK & PORTFOLIO
+// PART 12, 13 - RISK & PORTFOLIO
 // =============================================================
 
 model RiskConfig {
@@ -688,7 +688,7 @@ model ProviderSubscription {
 }
 
 // =============================================================
-// PART 15 — NOTIFICATIONS
+// PART 15 - NOTIFICATIONS
 // =============================================================
 
 model Notification {
@@ -710,7 +710,7 @@ model Notification {
 }
 
 // =============================================================
-// PART 6 — BACKTESTING / SIMULATION
+// PART 6 - BACKTESTING / SIMULATION
 // =============================================================
 
 model SimulationResult {
@@ -720,12 +720,12 @@ model SimulationResult {
   providerId      String
   config          String   // JSON: starting balance, sizing, costs
   results         String   // JSON: outcome metrics, monthly performance
-  isHypothetical  Boolean  @default(true) // ALWAYS true — never claim actual
+  isHypothetical  Boolean  @default(true) // ALWAYS true - never claim actual
   createdAt       DateTime @default(now())
 }
 
 // =============================================================
-// PART 22, 16 — RELIABILITY, AUDIT, INTEGRATION HEALTH
+// PART 22, 16 - RELIABILITY, AUDIT, INTEGRATION HEALTH
 // =============================================================
 
 model AuditEvent {

@@ -1,4 +1,4 @@
-// TRADE LINK — Recommendation Engine (Part 5)
+// TRADE LINK - Recommendation Engine (Part 5)
 // Scores providers across multiple factors, with separate data-confidence scoring.
 // Pure functions, deterministic.
 
@@ -45,7 +45,7 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   recentPerformance: 0.03,
 };
 
-// Normalisers — convert raw metric to 0..1 contribution score
+// Normalisers - convert raw metric to 0..1 contribution score
 function norm(value: number | null, max: number, invert = false, min = 0): number {
   if (value === null) return 0;
   const v = Math.min(Math.max(value, min), max);
@@ -97,7 +97,7 @@ export function scoreProvider(
   const sRiskConcentration = norm((stats.riskConcentration ?? 0) * 100, 80, true);
   const sRecentPerformance = norm(stats.monthlyReturnPct, 20);
 
-  // Position size stability — measures how consistently the provider sizes positions.
+  // Position size stability - measures how consistently the provider sizes positions.
   // Stability = 1 - (largestVolume - avgVolume) / largestVolume, clamped 0..1.
   // A provider whose largest trade equals its average is perfectly stable (1.0).
   let sPositionSizeStability = 0;
@@ -166,7 +166,7 @@ export function scoreProvider(
 
   // Data limitations
   const dataLimitations: string[] = [];
-  if (confidence < 0.4) dataLimitations.push("Low data confidence — verify before relying");
+  if (confidence < 0.4) dataLimitations.push("Low data confidence - verify before relying");
   if (stats.dataQuality === "calculated") dataLimitations.push("Drawdown based on closed trades, not intra-trade equity");
   if (tradeCount < 100) dataLimitations.push(`Only ${tradeCount} historical trades`);
   if (dataLimitations.length === 0) dataLimitations.push("No significant data limitations");

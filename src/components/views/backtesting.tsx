@@ -148,7 +148,7 @@ export function BacktestingView({ user }: { user: any }) {
   }, [analytics?.provider?.startingBalance]);
 
   const providerStats = analytics?.performance;
-  const providerName = analytics?.provider?.name ?? "—";
+  const providerName = analytics?.provider?.name ?? "-";
   const providerCurrency = analytics?.provider?.accountCurrency ?? "USD";
 
   function selectProviderForBacktest(id: string) {
@@ -244,7 +244,7 @@ export function BacktestingView({ user }: { user: any }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* LEFT PANEL — form */}
+        {/* LEFT PANEL - form */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -345,7 +345,7 @@ export function BacktestingView({ user }: { user: any }) {
                   value={
                     providerStats?.winRate !== null && providerStats?.winRate !== undefined
                       ? `${providerStats.winRate.toFixed(1)}%`
-                      : "—"
+                      : "-"
                   }
                   icon={Target}
                 />
@@ -598,7 +598,7 @@ export function BacktestingView({ user }: { user: any }) {
           </CardContent>
         </Card>
 
-        {/* RIGHT PANEL — results */}
+        {/* RIGHT PANEL - results */}
         <Card className="flex flex-col">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2">
@@ -689,7 +689,7 @@ function PlaceholderView() {
         Example: pick a provider with a 20% lifetime return, set a $1,000 starting balance,
         choose equity-ratio sizing with 1× multiplier, then click{" "}
         <span className="font-medium text-foreground">Run simulation</span> to see a hypothetical equity curve,
-        win rate, profit factor and drawdown — adjusted for spreads, commissions, and slippage.
+        win rate, profit factor and drawdown - adjusted for spreads, commissions, and slippage.
       </p>
       <div className="flex items-start gap-2 mt-4 max-w-sm text-left">
         <Info className="h-3.5 w-3.5 text-info shrink-0 mt-0.5" />
@@ -729,7 +729,7 @@ function ResultView({ result, currency, providerId, onViewAnalytics }: any) {
     },
     {
       label: "Profit factor",
-      value: r.profitFactor !== null && r.profitFactor !== undefined ? r.profitFactor.toFixed(2) : "—",
+      value: r.profitFactor !== null && r.profitFactor !== undefined ? r.profitFactor.toFixed(2) : "-",
       icon: Percent,
       accent: r.profitFactor !== null && r.profitFactor >= 1 ? "text-profit" : "text-loss",
     },
@@ -741,7 +741,7 @@ function ResultView({ result, currency, providerId, onViewAnalytics }: any) {
     },
     {
       label: "Recovery factor",
-      value: r.recoveryFactor !== null && r.recoveryFactor !== undefined ? r.recoveryFactor.toFixed(2) : "—",
+      value: r.recoveryFactor !== null && r.recoveryFactor !== undefined ? r.recoveryFactor.toFixed(2) : "-",
       icon: Activity,
       accent: "text-info",
     },

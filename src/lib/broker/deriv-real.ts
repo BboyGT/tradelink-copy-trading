@@ -1,4 +1,4 @@
-// TRADE LINK — Real Deriv API Connector
+// TRADE LINK - Real Deriv API Connector
 //
 // This connector implements the BrokerConnector interface using the real
 // Deriv API. It uses:
@@ -39,7 +39,7 @@ const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3";
 
 /**
  * Real Deriv API connector.
- * Implements the same BrokerConnector interface as the mock — drop-in replacement.
+ * Implements the same BrokerConnector interface as the mock - drop-in replacement.
  */
 export class DerivRealConnector implements BrokerConnector {
   readonly broker = "deriv" as const;

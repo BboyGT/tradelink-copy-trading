@@ -1,4 +1,4 @@
-// TRADE LINK — Demo data generator (Part 25.4)
+// TRADE LINK - Demo data generator (Part 25.4)
 // Generates clearly-labelled DEMO providers, historical trades, broker accounts.
 // Used only in dev environment. Per the PRD: never fabricate in production.
 
@@ -7,7 +7,7 @@ import { PLATFORM_CAPABILITIES } from "@/lib/types";
 import type { IntegrationCapability } from "@/lib/types";
 
 const INSTRUMENTS = [
-  { symbol: "XAUUSD", asset: "metal", price: 2650.5, vol: 2.5 },       // ~$2.5-$10 move per trade (was 0.012 — too small, costs ate all profit)
+  { symbol: "XAUUSD", asset: "metal", price: 2650.5, vol: 2.5 },       // ~$2.5-$10 move per trade (was 0.012 - too small, costs ate all profit)
   { symbol: "EURUSD", asset: "forex", price: 1.085, vol: 0.0008 },
   { symbol: "GBPUSD", asset: "forex", price: 1.275, vol: 0.0009 },
   { symbol: "BTCUSD", asset: "crypto", price: 67500, vol: 350 },
@@ -166,7 +166,7 @@ const PROVIDER_SEEDS: ProviderSeed[] = [
 ];
 
 function rng(seed: number) {
-  // Mulberry32 PRNG — deterministic for reproducible demo data
+  // Mulberry32 PRNG - deterministic for reproducible demo data
   let s = seed;
   return () => {
     s |= 0; s = (s + 0x6D2B79F5) | 0;
@@ -181,7 +181,7 @@ function pick<T>(arr: T[], r: () => number): T {
 }
 
 export async function seedDemoData(): Promise<{ providers: number; trades: number }> {
-  // Idempotency — skip if already seeded
+  // Idempotency - skip if already seeded
   const existing = await db.providerPlatform.count();
   if (existing > 0) {
     return { providers: 0, trades: 0 };
@@ -305,7 +305,7 @@ export async function seedDemoData(): Promise<{ providers: number; trades: numbe
   }
 
   // 3. Demo broker account (if no user yet, will be claimed on signup)
-  // Skipped — broker accounts are created per-user.
+  // Skipped - broker accounts are created per-user.
 
   // 4. Instrument specs for the demo brokers
   const instrumentDefs = [
@@ -418,7 +418,7 @@ async function computeAndStoreStatistics(providerId: string, startingBalance: nu
     },
   });
 
-  // Generate historical ProviderChangeSnapshot records — 5-10 snapshots
+  // Generate historical ProviderChangeSnapshot records - 5-10 snapshots
   // spread across the last 90 days (one every ~9 days). Older snapshots
   // trend toward the current stats so the change-tracking chart shows a
   // plausible evolution (e.g. return grows from +20% to +140% over time)

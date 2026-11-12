@@ -1,4 +1,4 @@
-// Notification preferences (Part 15, 22) — per-scope channel overrides.
+// Notification preferences (Part 15, 22) - per-scope channel overrides.
 //
 // NotificationPreferences lets users override their global UserSettings channels
 // (in-app / push / email / telegram) on a per-provider or per-account basis,
@@ -23,7 +23,7 @@ function normalizeSeverity(s: unknown): Severity {
 }
 
 // Returns the validated quiet-hour value (0..23) or null when input is null.
-// Returns `undefined` (the literal) when input is invalid — callers should skip.
+// Returns `undefined` (the literal) when input is invalid - callers should skip.
 function parseQuietHour(v: unknown): number | null | undefined {
   if (v === null) return null;
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
@@ -32,7 +32,7 @@ function parseQuietHour(v: unknown): number | null | undefined {
   return n;
 }
 
-// GET — list all preferences for the user.
+// GET - list all preferences for the user.
 // Optional `?scope=provider|account` filter.
 export async function GET(req: NextRequest) {
   try {
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — create or update a NotificationPreferences record (upsert by userId+scope+scopeRefId).
+// POST - create or update a NotificationPreferences record (upsert by userId+scope+scopeRefId).
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — delete a NotificationPreferences record by id.
+// DELETE - delete a NotificationPreferences record by id.
 // Accepts the id either via query param (?id=...) or request body { id }.
 export async function DELETE(req: NextRequest) {
   try {
@@ -167,7 +167,7 @@ export async function DELETE(req: NextRequest) {
         const body = await req.json();
         if (body && typeof body.id === "string") id = body.id;
       } catch {
-        // No body — that's fine, id stays undefined.
+        // No body - that's fine, id stays undefined.
       }
     }
 

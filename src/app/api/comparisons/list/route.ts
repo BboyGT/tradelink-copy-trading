@@ -1,4 +1,4 @@
-// Comparisons — save & list (Part 20.3)
+// Comparisons - save & list (Part 20.3)
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";

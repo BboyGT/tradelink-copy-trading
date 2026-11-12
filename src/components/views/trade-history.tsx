@@ -446,8 +446,8 @@ function StateBadge({ state }: { state: string }) {
 
 function LedgerRow({ position: p }: { position: any }) {
   const src = p.sourcePosition;
-  const providerName = src?.replicationConfig?.provider?.name ?? "—";
-  const accountLabel = p.brokerAccount?.accountLabel ?? "—";
+  const providerName = src?.replicationConfig?.provider?.name ?? "-";
+  const accountLabel = p.brokerAccount?.accountLabel ?? "-";
   const brokerCode = p.brokerAccount?.brokerCode ?? "";
   const srcPl = src?.netProfit ?? null;
   const destPl = p.netProfit ?? null;
@@ -490,7 +490,7 @@ function NumCell({
   suffix?: string;
 }) {
   if (value === null || value === undefined) {
-    return <TableCell className="text-right text-muted-foreground">—</TableCell>;
+    return <TableCell className="text-right text-muted-foreground">-</TableCell>;
   }
   return (
     <TableCell className="text-right tnum text-xs">
@@ -501,7 +501,7 @@ function NumCell({
 
 function PlCell({ value }: { value: number | null }) {
   if (value === null || value === undefined) {
-    return <TableCell className="text-right text-muted-foreground">—</TableCell>;
+    return <TableCell className="text-right text-muted-foreground">-</TableCell>;
   }
   const cls = value > 0 ? "text-profit" : value < 0 ? "text-loss" : "text-muted-foreground";
   return (

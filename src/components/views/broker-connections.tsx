@@ -177,17 +177,17 @@ const PROP_FIRM_PHASES: { value: PropFirmPhase; label: string; description: stri
   {
     value: "challenge",
     label: "Challenge",
-    description: "Initial evaluation phase — hit the profit target without breaching loss limits.",
+    description: "Initial evaluation phase - hit the profit target without breaching loss limits.",
   },
   {
     value: "verification",
     label: "Verification",
-    description: "Second phase — confirm consistency on a smaller target.",
+    description: "Second phase - confirm consistency on a smaller target.",
   },
   {
     value: "funded",
     label: "Funded",
-    description: "Live funded account — just don't breach the loss limits.",
+    description: "Live funded account - just don't breach the loss limits.",
   },
 ];
 
@@ -330,7 +330,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
               Prop Firm Accounts
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              Track your funded challenge — balance, phase, and rule compliance.
+              Track your funded challenge - balance, phase, and rule compliance.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -406,7 +406,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
 
       {/* ============ Dialogs ============ */}
 
-      {/* Retail broker — OAuth-style connect */}
+      {/* Retail broker - OAuth-style connect */}
       <ConnectRetailDialog
         broker={retailDialogBroker}
         pending={connectMutation.isPending}
@@ -415,7 +415,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
         onBridgeEnrolled={() => { qc.invalidateQueries({ queryKey: ["broker-accounts"] }); onConnected(); }}
       />
 
-      {/* Prop firm — challenge connect */}
+      {/* Prop firm - challenge connect */}
       <ConnectPropFirmDialog
         code={propFirmDialogCode}
         pending={connectMutation.isPending}
@@ -548,7 +548,7 @@ function ViewHeader({ connectedCount }: { connectedCount: number }) {
             Broker Connections <DemoBadge />
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Connect your destination accounts in one click. We never ask for passwords in the main flow — just sign in at your broker.
+            Connect your destination accounts in one click. We never ask for passwords in the main flow - just sign in at your broker.
           </p>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
@@ -924,7 +924,7 @@ function ConnectRetailDialog({
                     </Select>
                   </div>
 
-                  {/* Credentials — varies by broker */}
+                  {/* Credentials - varies by broker */}
                   {brokerCode === "deriv" && (
                     <div className="space-y-1.5">
                       <Label htmlFor="retail-token" className="text-xs">API token (optional)</Label>
@@ -1175,7 +1175,7 @@ function ConnectPropFirmDialog({
                 >
                   <div className="font-semibold">{p.label}</div>
                   <div className="text-[9px] text-muted-foreground mt-0.5 leading-tight">
-                    {p.description.split("—")[0].trim()}
+                    {p.description.split("-")[0].trim()}
                   </div>
                 </button>
               ))}
@@ -1291,7 +1291,7 @@ function AccountCard({
     const drawdown = Math.max(0, starting - equity);
     const lossUsedPct = Math.min(100, (drawdown / maxOverallLoss) * 100);
     const lossRemainingPct = Math.max(0, 100 - lossUsedPct);
-    // Daily loss — we don't track daily P/L, so show as N/A unless we can compute it
+    // Daily loss - we don't track daily P/L, so show as N/A unless we can compute it
     // For demo, assume the daily loss used is proportional to recent drawdown (best-effort)
     const maxDailyLoss = starting * (rules.maxDailyLossPct / 100);
     const dailyDrawdown = Math.max(0, Math.min(drawdown, maxDailyLoss));
@@ -1674,7 +1674,7 @@ function PropFirmCompliance({
       {compliance.lossUsedPct >= 80 && (
         <div className="flex items-center gap-1.5 text-[10px] text-loss">
           <AlertTriangle className="h-3 w-3" />
-          Approaching max drawdown — reduce risk or pause replication.
+          Approaching max drawdown - reduce risk or pause replication.
         </div>
       )}
     </div>
@@ -1823,14 +1823,14 @@ function PositionsTable({
                 <td className="px-2 py-2 text-right tnum">{formatNumber(p.volume)}{account.brokerCode === "deriv" ? ` ${account.currency}` : ""}</td>
                 <td className="px-2 py-2 text-right tnum">{formatNumber(p.entryPrice, 5)}</td>
                 <td className="px-2 py-2 text-right tnum">
-                  {p.currentPrice !== null && p.currentPrice !== undefined ? formatNumber(p.currentPrice, 5) : "—"}
+                  {p.currentPrice !== null && p.currentPrice !== undefined ? formatNumber(p.currentPrice, 5) : "-"}
                 </td>
                 <td className={`px-2 py-2 text-right tnum font-medium ${(p.unrealizedProfit ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>
                   {(p.unrealizedProfit ?? 0) >= 0 ? "+" : ""}{formatCurrency(p.unrealizedProfit ?? 0, account.currency)}
                 </td>
                 <td className="px-2 py-2 text-right tnum text-[11px] text-muted-foreground">
-                  {p.stopLoss !== null && p.stopLoss !== undefined ? formatNumber(p.stopLoss, 5) : "—"} /{" "}
-                  {p.takeProfit !== null && p.takeProfit !== undefined ? formatNumber(p.takeProfit, 5) : "—"}
+                  {p.stopLoss !== null && p.stopLoss !== undefined ? formatNumber(p.stopLoss, 5) : "-"} /{" "}
+                  {p.takeProfit !== null && p.takeProfit !== undefined ? formatNumber(p.takeProfit, 5) : "-"}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <Button

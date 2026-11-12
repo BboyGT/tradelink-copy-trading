@@ -1,5 +1,5 @@
 #!/bin/bash
-# Debug script — tests every view via agent-browser and reports issues
+# Debug script - tests every view via agent-browser and reports issues
 
 VIEWS=("dashboard" "discover" "live_monitor" "portfolio" "automated_trading" "risk_management")
 SECONDARY=("analytics" "comparison" "backtesting" "trade_history" "broker_connections" "notifications" "settings" "admin")
@@ -26,7 +26,7 @@ for view_label in "Dashboard" "Discover" "Live" "Portfolio" "Replication" "Risk"
   errors=$(agent-browser errors 2>&1 | head -3)
   if [ -z "$errors" ]; then
     heading=$(agent-browser eval "document.querySelector('h1')?.innerText || 'no heading'" 2>&1 | tail -1)
-    echo "  ✅ OK — heading: $heading"
+    echo "  ✅ OK - heading: $heading"
   else
     echo "  ❌ ERROR: $errors"
   fi
@@ -56,7 +56,7 @@ for view_label in "Analytics" "Compare" "Backtest" "History" "Brokers" "Alerts" 
   errors=$(agent-browser errors 2>&1 | head -3)
   if [ -z "$errors" ]; then
     heading=$(agent-browser eval "document.querySelector('h1')?.innerText || 'no heading'" 2>&1 | tail -1)
-    echo "  ✅ OK — heading: $heading"
+    echo "  ✅ OK - heading: $heading"
   else
     echo "  ❌ ERROR: $errors"
   fi

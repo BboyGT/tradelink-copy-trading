@@ -444,7 +444,7 @@ function EmergencyControls() {
     (sum, a) => sum + (a.destinationPositions?.length ?? 0),
     0,
   );
-  // Detect paused state — we don't have a direct endpoint, infer from replicationConfigs not fetched here.
+  // Detect paused state - we don't have a direct endpoint, infer from replicationConfigs not fetched here.
   // Use a heuristic: always show "All systems running" unless explicitly told otherwise.
   const pausedCount = 0;
 
@@ -456,7 +456,7 @@ function EmergencyControls() {
         action === "close_all"
           ? `Closed ${res.closed ?? 0} open positions`
           : action === "resume_all"
-            ? `Resumed ${res.resumed ?? 0} (${res.skipped ?? 0} skipped — not live-authorized)`
+            ? `Resumed ${res.resumed ?? 0} (${res.skipped ?? 0} skipped - not live-authorized)`
             : "All replications paused";
       toast({
         title:
@@ -987,7 +987,7 @@ function PropFirmAccountCard({ account }: { account: any }) {
       {isLossCritical && (
         <div className="flex items-center gap-1.5 text-[10px] text-loss bg-loss/10 border border-loss/30 rounded px-2 py-1.5">
           <AlertTriangle className="h-3 w-3 shrink-0" />
-          Approaching breach — reduce risk or pause replication.
+          Approaching breach - reduce risk or pause replication.
         </div>
       )}
     </div>
@@ -1986,13 +1986,13 @@ export function RiskManagementView({ user }: RiskManagementViewProps) {
         </div>
       </div>
 
-      {/* Emergency controls — prominent */}
+      {/* Emergency controls - prominent */}
       <EmergencyControls />
 
-      {/* Portfolio risk overview — gauge + 4 metric bars */}
+      {/* Portfolio risk overview - gauge + 4 metric bars */}
       <PortfolioRiskOverview portfolioConfig={portfolioConfig} />
 
-      {/* Prop firm compliance — only if any prop firm accounts exist */}
+      {/* Prop firm compliance - only if any prop firm accounts exist */}
       <PropFirmCompliance />
 
       {/* Risk limits tabs */}

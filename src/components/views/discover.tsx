@@ -189,13 +189,13 @@ function ProviderCard({ provider, user, onSelect, onSignIn }: { provider: any; u
         <div className="grid grid-cols-3 gap-2 pt-1">
           <Stat label="Lifetime" value={formatPct(stats?.lifetimeReturnPct)} className={stats?.lifetimeReturnPct && stats.lifetimeReturnPct > 0 ? "text-profit" : "text-loss"} />
           <Stat label="Max DD" value={formatPct(stats?.maxDrawdownPct)} className="text-loss" />
-          <Stat label="Win rate" value={stats?.winRate !== null && stats?.winRate !== undefined ? `${stats.winRate.toFixed(1)}%` : "—"} />
+          <Stat label="Win rate" value={stats?.winRate !== null && stats?.winRate !== undefined ? `${stats.winRate.toFixed(1)}%` : "-"} />
         </div>
 
         <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border">
-          <Stat label="PF" value={stats?.profitFactor !== null && stats?.profitFactor !== undefined ? stats.profitFactor.toFixed(2) : "—"} />
-          <Stat label="Trades" value={stats?.totalClosedTrades?.toString() ?? "—"} />
-          <Stat label="Followers" value={provider.followers?.toLocaleString() ?? "—"} />
+          <Stat label="PF" value={stats?.profitFactor !== null && stats?.profitFactor !== undefined ? stats.profitFactor.toFixed(2) : "-"} />
+          <Stat label="Trades" value={stats?.totalClosedTrades?.toString() ?? "-"} />
+          <Stat label="Followers" value={provider.followers?.toLocaleString() ?? "-"} />
         </div>
 
         <Button variant="outline" size="sm" className="w-full font-mono uppercase text-[11px] tracking-wider hover:bg-primary/10 hover:border-primary/30" onClick={onSelect}>

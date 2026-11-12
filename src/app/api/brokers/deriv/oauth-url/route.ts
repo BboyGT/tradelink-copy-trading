@@ -1,4 +1,4 @@
-// Deriv OAuth — generate the authorization URL
+// Deriv OAuth - generate the authorization URL
 // The browser redirects the user here, Deriv asks for consent, then redirects back
 import { NextRequest } from "next/server";
 import { createAuthorizationUrl } from "@/lib/provider-oauth";

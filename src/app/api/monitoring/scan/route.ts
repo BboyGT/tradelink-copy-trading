@@ -1,4 +1,4 @@
-// TRADE LINK — Account Scanner API (Part 7, 22)
+// TRADE LINK - Account Scanner API (Part 7, 22)
 //
 // This endpoint scans the user's connected broker accounts for position changes.
 // When changes are detected, it:
@@ -394,7 +394,7 @@ export async function POST(req: NextRequest) {
                 await db.destinationPosition.update({ where: { id: destPos.id }, data: { state: "closed", closeTime: new Date(), exitPrice: closeResult.closedPrice, grossProfit: closeResult.realizedProfit, netProfit: closeResult.realizedProfit } });
                 await sendNotification(user.id, {
                   type: "trade_closed", title: "TRADE CLOSED",
-                  body: `${event.instrument} | Source closed | Dest P/L: ${closeResult.realizedProfit?.toFixed(2) ?? "—"}`,
+                  body: `${event.instrument} | Source closed | Dest P/L: ${closeResult.realizedProfit?.toFixed(2) ?? "-"}`,
                   severity: (closeResult.realizedProfit ?? 0) >= 0 ? "success" : "warning",
                 });
               } catch (e: any) { totalErrors++; allDestinationsClosed = false; console.error("[mirror] destination close failed", e.message); }

@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 
 export function formatCurrency(value: number | null | undefined, currency = "USD", decimals = 2): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   const sign = value < 0 ? "-" : "";
   const num = Math.abs(value);
   const symbols: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", JPY: "¥" };
@@ -12,18 +12,18 @@ export function formatCurrency(value: number | null | undefined, currency = "USD
 }
 
 export function formatPct(value: number | null | undefined, decimals = 2): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(decimals)}%`;
 }
 
 export function formatNumber(value: number | null | undefined, decimals = 2): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   return value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 export function formatDateTime(date: Date | string | null | undefined): string {
-  if (!date) return "—";
+  if (!date) return "-";
   const d = typeof date === "string" ? new Date(date) : date;
   return format(d, "MMM d, yyyy HH:mm");
 }

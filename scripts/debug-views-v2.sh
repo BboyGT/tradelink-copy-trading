@@ -1,5 +1,5 @@
 #!/bin/bash
-# Comprehensive debug — tests every view via direct JS click
+# Comprehensive debug - tests every view via direct JS click
 
 VIEWS=(
   "dashboard|Dashboard"

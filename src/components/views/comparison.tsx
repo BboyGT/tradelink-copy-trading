@@ -105,14 +105,14 @@ const METRIC_ROWS: MetricRowDef[] = [
     label: "Win rate",
     higherIsBetter: true,
     raw: (a) => a?.performance?.winRate ?? null,
-    format: (v) => (v !== null ? `${v.toFixed(1)}%` : "—"),
+    format: (v) => (v !== null ? `${v.toFixed(1)}%` : "-"),
   },
   {
     key: "profitFactor",
     label: "Profit factor",
     higherIsBetter: true,
     raw: (a) => a?.performance?.profitFactor ?? null,
-    format: (v) => (v !== null ? v.toFixed(2) : "—"),
+    format: (v) => (v !== null ? v.toFixed(2) : "-"),
   },
   {
     key: "totalClosedTrades",
@@ -126,21 +126,21 @@ const METRIC_ROWS: MetricRowDef[] = [
     label: "Recovery factor",
     higherIsBetter: true,
     raw: (a) => a?.drawdown?.recoveryFactor ?? null,
-    format: (v) => (v !== null ? v.toFixed(2) : "—"),
+    format: (v) => (v !== null ? v.toFixed(2) : "-"),
   },
   {
     key: "avgHoldingHours",
     label: "Avg holding time",
     higherIsBetter: false,
     raw: (a) => a?.behaviour?.avgHoldingHours ?? null,
-    format: (v) => (v !== null ? formatDuration(v) : "—"),
+    format: (v) => (v !== null ? formatDuration(v) : "-"),
   },
   {
     key: "riskConcentration",
     label: "Risk concentration",
     higherIsBetter: false,
     raw: (a) => a?.risk?.riskConcentration ?? null,
-    format: (v) => (v !== null ? `${(v * 100).toFixed(1)}%` : "—"),
+    format: (v) => (v !== null ? `${(v * 100).toFixed(1)}%` : "-"),
   },
 ];
 
@@ -465,7 +465,7 @@ export function ComparisonView({ user }: { user: any }) {
                               {provider?.name ?? "Unknown"}
                             </div>
                             <div className="text-[10px] text-muted-foreground truncate">
-                              {provider?.platformName ?? "—"} • {provider?.accountCurrency ?? "USD"}
+                              {provider?.platformName ?? "-"} • {provider?.accountCurrency ?? "USD"}
                             </div>
                           </button>
                           <div className="mt-2">
@@ -483,7 +483,7 @@ export function ComparisonView({ user }: { user: any }) {
                             <span className="text-right tnum">
                               {a?.performance?.winRate !== null && a?.performance?.winRate !== undefined
                                 ? `${a.performance.winRate.toFixed(1)}%`
-                                : "—"}
+                                : "-"}
                             </span>
                           </div>
                           <Button
@@ -578,7 +578,7 @@ export function ComparisonView({ user }: { user: any }) {
                               {!a ? (
                                 <Skeleton className="h-4 w-12 ml-auto" />
                               ) : raw === null ? (
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground">-</span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 justify-end">
                                   {row.format(raw, a)}

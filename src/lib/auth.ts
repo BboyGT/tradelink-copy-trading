@@ -1,4 +1,4 @@
-// TRADE LINK — Authentication & session management
+// TRADE LINK - Authentication & session management
 // NextAuth (credentials provider) + helpers for tenant isolation.
 
 import type { NextAuthOptions } from "next-auth";
@@ -76,7 +76,7 @@ export const authOptions: NextAuthOptions = {
 };
 
 // Helper: get the current user's id from a server-side session.
-// Throws if unauthenticated — protects API routes by default.
+// Throws if unauthenticated - protects API routes by default.
 import { getServerSession } from "next-auth/next";
 import { headers } from "next/headers";
 
@@ -102,7 +102,7 @@ export async function requireAdmin() {
   return user;
 }
 
-// Audit logging helper — every sensitive action gets recorded.
+// Audit logging helper - every sensitive action gets recorded.
 export async function audit(args: {
   userId?: string;
   brokerAccountId?: string;

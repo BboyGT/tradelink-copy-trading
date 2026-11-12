@@ -310,7 +310,7 @@ export function NotificationsView({ user }: { user: any }) {
         </CardContent>
       </Card>
 
-      {/* Preferences (per provider/account) — read-only, "Coming soon" */}
+      {/* Preferences (per provider/account) - read-only, "Coming soon" */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">

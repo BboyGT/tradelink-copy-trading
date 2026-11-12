@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -13,12 +14,22 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useNavStore } from "@/lib/nav-store";
 import { cn } from "@/lib/utils";
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), milliseconds);
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 // Password strength calculator
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   if (!password) return { score: 0, label: "", color: "" };
 
   let score = 0;
-  // Length — start at 1 if any password exists
+  // Length - start at 1 if any password exists
   if (password.length >= 1) score = 1; // minimum "very weak"
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
@@ -81,11 +92,15 @@ function PasswordInput({
   value,
   onChange,
   showStrength,
+  minLength = 1,
+  maxLength = 128,
 }: {
   id: string;
   value: string;
   onChange: (v: string) => void;
   showStrength?: boolean;
+  minLength?: number;
+  maxLength?: number;
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -96,7 +111,8 @@ function PasswordInput({
           id={id}
           type={showPassword ? "text" : "password"}
           required
-          minLength={6}
+          minLength={minLength}
+          maxLength={maxLength}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="pr-10"
@@ -121,6 +137,7 @@ function PasswordInput({
 }
 
 export function AuthDialog() {
+  const router = useRouter();
   const open = useNavStore((s) => s.authOpen);
   const setOpen = useNavStore((s) => s.setAuthOpen);
   const setView = useNavStore((s) => s.setView);
@@ -137,29 +154,38 @@ export function AuthDialog() {
     setLoading(true);
     try {
       if (mode === "register") {
-        const res = await fetch("/api/auth/register", {
+        const res = await withTimeout(fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, name }),
-        });
+          signal: AbortSignal.timeout(20_000),
+        }), 25_000, "Sign-up timed out. If you already submitted this email, try signing in.");
         if (!res.ok) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 409) throw new Error("An account may already exist with this email. Try the Sign in tab.");
           throw new Error(data.error ?? "Registration failed");
         }
       }
-      const result = await signIn("credentials", { email, password, redirect: false });
+      const result = await withTimeout(
+        signIn("credentials", { email, password, redirect: false }),
+        20_000,
+        "Sign-in timed out. Please try again.",
+      );
       if (!result || result.error) {
         throw new Error("Invalid credentials");
       }
       toast({ title: "Signed in", description: "Welcome to TRADE LINK" });
       setOpen(false);
       setView("dashboard");
+      router.replace("/");
       queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
     } catch (err: any) {
       toast({
         title: "Authentication failed",
-        description: err.message,
+        description: err.name === "TimeoutError" || err.name === "AbortError"
+          ? "The request timed out. If you were signing up, try signing in before submitting again."
+          : err.message ?? "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -195,7 +221,7 @@ export function AuthDialog() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                New here? Use the Register tab — your demo data will be seeded automatically.
+                New here? Register to create an account, then connect your broker accounts.
               </p>
             </form>
           </TabsContent>
@@ -203,15 +229,15 @@ export function AuthDialog() {
             <form onSubmit={submit} className="space-y-3 pt-2">
               <div className="space-y-1">
                 <Label htmlFor="reg-name">Name</Label>
-                <Input id="reg-name" required value={name} onChange={(e) => setName(e.target.value)} />
+                <Input id="reg-name" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="reg-email">Email</Label>
-                <Input id="reg-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input id="reg-email" type="email" required maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="reg-pass">Password</Label>
-                <PasswordInput id="reg-pass" value={password} onChange={setPassword} showStrength />
+                <PasswordInput id="reg-pass" value={password} onChange={setPassword} showStrength minLength={12} maxLength={128} />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}

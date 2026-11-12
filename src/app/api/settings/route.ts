@@ -1,9 +1,9 @@
-// User settings (Part 18, 22) — notification channels + trading defaults.
+// User settings (Part 18, 22) - notification channels + trading defaults.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser, audit } from "@/lib/auth";
 
-// Default UserSettings row — mirrors the Prisma column defaults so callers
+// Default UserSettings row - mirrors the Prisma column defaults so callers
 // can rely on consistent shapes before the row exists.
 const DEFAULT_SETTINGS = {
   notifInApp: true,
@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS = {
   telegramChatId: null as string | null,
 };
 
-// GET — return the user's UserSettings, creating defaults if not present.
+// GET - return the user's UserSettings, creating defaults if not present.
 export async function GET() {
   try {
     const user = await requireUser();
@@ -33,7 +33,7 @@ export async function GET() {
   }
 }
 
-// PUT — update the user's UserSettings (notification channels + trading defaults).
+// PUT - update the user's UserSettings (notification channels + trading defaults).
 export async function PUT(req: NextRequest) {
   try {
     const user = await requireUser();

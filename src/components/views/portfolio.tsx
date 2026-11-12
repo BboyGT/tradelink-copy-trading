@@ -229,7 +229,7 @@ export function PortfolioView({ user }: { user: any }) {
             <strong className="text-warning">Important:</strong> Multi-account replication magnifies risk.
             Ensure each destination account has its own risk limits configured in{" "}
             <Button variant="link" className="px-1 h-auto p-0 text-warning" onClick={() => setView("risk_management")}>Risk Management</Button>.
-            Source performance ≠ destination performance — execution differences apply.
+            Source performance ≠ destination performance - execution differences apply.
           </div>
         </CardContent>
       </Card>
