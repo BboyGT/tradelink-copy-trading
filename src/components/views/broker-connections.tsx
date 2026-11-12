@@ -339,6 +339,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
               <RetailBrokerCard
                 key={b.code}
                 broker={b}
+                connectedCount={accounts.filter((account) => account.brokerCode === b.code && account.status === "connected").length}
                 onConnect={() => setRetailDialogBroker(b)}
               />
             ))}
@@ -597,9 +598,11 @@ function ViewHeader({ connectedCount }: { connectedCount: number }) {
 
 function RetailBrokerCard({
   broker,
+  connectedCount,
   onConnect,
 }: {
   broker: RetailBroker;
+  connectedCount: number;
   onConnect: () => void;
 }) {
   return (
@@ -625,6 +628,11 @@ function RetailBrokerCard({
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-mono">
             {broker.code}
           </div>
+          {connectedCount > 0 && (
+            <Badge variant="outline" className="mt-1.5 text-[10px] bg-profit/15 text-profit border-profit/30">
+              <ShieldCheck className="h-3 w-3 mr-1" /> Connected · {connectedCount} account{connectedCount === 1 ? "" : "s"}
+            </Badge>
+          )}
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed flex-1">
@@ -641,7 +649,7 @@ function RetailBrokerCard({
         onClick={onConnect}
       >
         <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-        Connect
+        {connectedCount > 0 ? "Connect another account" : "Connect"}
       </Button>
     </div>
   );
