@@ -114,6 +114,7 @@ async function persistAccount(input: {
     balance: Number.isFinite(input.balance) ? input.balance! : 0,
     equity: Number.isFinite(input.equity) ? input.equity! : (Number.isFinite(input.balance) ? input.balance! : 0),
     isDemo: input.isDemo, status: "connected", authMethod: "oauth", authRef,
+    lastSyncedAt: new Date(),
     externalAccountId: input.accountId,
     tokenExpiresAt: typeof input.auth.expiresAt === "number" ? new Date(input.auth.expiresAt) : null,
   };

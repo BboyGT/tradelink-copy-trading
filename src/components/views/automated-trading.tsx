@@ -72,6 +72,7 @@ interface BrokerAccount {
   equity: number;
   currency: string;
   isDemo: boolean;
+  isSelectedForCopy: boolean;
   isLiveAuthorized: boolean;
   status: string;
   authMethod?: string | null;
@@ -880,7 +881,7 @@ function StepSource({
   onSelect: (id: string) => void;
   onConnectBroker: () => void;
 }) {
-  const available = accounts.filter((a) => a.status === "connected" && (["mt4", "mt5"].includes(a.brokerCode) || (["ctrader", "deriv"].includes(a.brokerCode) && a.authMethod === "oauth")));
+  const available = accounts.filter((a) => a.status === "connected" && a.isSelectedForCopy && (["mt4", "mt5"].includes(a.brokerCode) || (["ctrader", "deriv"].includes(a.brokerCode) && a.authMethod === "oauth")));
   return (
     <div className="space-y-4">
       <div>
@@ -939,7 +940,7 @@ function StepDestination({
   onSelect: (id: string) => void;
   onConnectBroker: () => void;
 }) {
-  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && (sourceBrokerCode === "deriv"
+  const available = accounts.filter((a) => a.id !== excludeId && a.status === "connected" && a.isSelectedForCopy && (sourceBrokerCode === "deriv"
     ? a.brokerCode === "deriv" && a.authMethod === "oauth"
     : ["mt4", "mt5"].includes(a.brokerCode) || (a.brokerCode === "ctrader" && a.authMethod === "oauth")));
 

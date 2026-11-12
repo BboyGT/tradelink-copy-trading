@@ -68,8 +68,9 @@ export async function POST(req: NextRequest) {
     const account = await db.brokerAccount.findFirst({ where: { id: brokerAccountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: "Broker account not found" }, { status: 404 });
     if (account.status !== "connected") return NextResponse.json({ error: "Connect the destination account before configuring replication" }, { status: 409 });
+    if (!account.isSelectedForCopy) return NextResponse.json({ error: "Select this destination account in Broker Connections before configuring replication" }, { status: 409 });
     if (!["mt4", "mt5", "ctrader", "deriv"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose a connected MT4, MT5, cTrader, or Deriv destination account" }, { status: 400 });
-    const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected" } });
+    const sourceAccount = await db.brokerAccount.findFirst({ where: { id: sourceBrokerAccountId, userId: user.id, status: "connected", isSelectedForCopy: true } });
     const sourceIsTerminal = sourceAccount && ["mt4", "mt5"].includes(sourceAccount.brokerCode);
     const sourceIsCTrader = sourceAccount?.brokerCode === "ctrader" && sourceAccount.authMethod === "oauth";
     const sourceIsDeriv = sourceAccount?.brokerCode === "deriv" && sourceAccount.authMethod === "oauth";

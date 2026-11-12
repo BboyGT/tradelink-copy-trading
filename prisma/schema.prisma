@@ -364,6 +364,7 @@ model BrokerAccount {
   leverage        Float?
   accountType     String?  // "hedging" | "netting" - advanced option, defaults to hedging
   isDemo          Boolean  @default(true)
+  isSelectedForCopy Boolean @default(false) // user explicitly chooses whether TRADE LINK may use this account for copying
   isLiveAuthorized Boolean @default(false) // explicit live trading authorization
   status          String   @default("disconnected") // "connected" | "disconnected" | "expired" | "error"
   authMethod      String?  // "oauth" | "api_token" | "bridge"

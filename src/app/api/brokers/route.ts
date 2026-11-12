@@ -16,15 +16,16 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    // Check if user is in live mode
     const isLiveMode = allAccounts.some((a) => !a.isDemo && a.status === "connected");
+    const summary = {
+      total: allAccounts.length,
+      connected: allAccounts.filter((a) => a.status === "connected").length,
+      selectedForCopy: allAccounts.filter((a) => a.isSelectedForCopy).length,
+      demo: allAccounts.filter((a) => a.isDemo).length,
+      live: allAccounts.filter((a) => !a.isDemo).length,
+    };
 
-    // In live mode, only show real accounts. In demo mode, show all (including demo).
-    const accounts = isLiveMode
-      ? allAccounts.filter((a) => !a.isDemo)
-      : allAccounts;
-
-    return NextResponse.json({ accounts: redactSecrets(accounts), isLiveMode });
+    return NextResponse.json({ accounts: redactSecrets(allAccounts), isLiveMode, summary });
   } catch (e: any) {
     if (e.message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json({ error: e.message }, { status: 500 });

@@ -41,10 +41,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.status === "active") {
       const account = await db.brokerAccount.findFirst({ where: { id: existing.brokerAccountId, userId: user.id } });
       if (!account) return NextResponse.json({ error: "Broker account not found" }, { status: 404 });
+      if (!account.isSelectedForCopy) return NextResponse.json({ error: "Select this account in Broker Connections before activating replication" }, { status: 409 });
       if (!["mt4", "mt5"].includes(account.brokerCode)) return NextResponse.json({ error: "Choose an MT4 or MT5 destination" }, { status: 400 });
       if (!account.isDemo && !account.isLiveAuthorized) return NextResponse.json({ error: "Live trading not authorized" }, { status: 403 });
       if (!existing.sourceBrokerAccountId) return NextResponse.json({ error: "This legacy replication has no linked source terminal" }, { status: 409 });
-      const source = await db.brokerAccount.findFirst({ where: { id: existing.sourceBrokerAccountId, userId: user.id, status: "connected" } });
+      const source = await db.brokerAccount.findFirst({ where: { id: existing.sourceBrokerAccountId, userId: user.id, status: "connected", isSelectedForCopy: true } });
       if (!source || !["mt4", "mt5"].includes(source.brokerCode)) return NextResponse.json({ error: "Source MetaTrader account is unavailable" }, { status: 409 });
       if (!process.env.SCANNER_WORKER_TOKEN || process.env.SCANNER_WORKER_TOKEN.length < 32) return NextResponse.json({ error: "Persistent copy worker is not configured" }, { status: 503 });
       for (const terminal of [source, account]) {

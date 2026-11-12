@@ -35,6 +35,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (config.executionMode !== "auto") {
         return NextResponse.json({ error: "Only automatic replication can be resumed; approval workflows are not implemented" }, { status: 400 });
       }
+      if (!config.brokerAccount.isSelectedForCopy || (config.sourceBrokerAccount && !config.sourceBrokerAccount.isSelectedForCopy)) {
+        return NextResponse.json({ error: "Select both accounts in Broker Connections before resuming replication" }, { status: 409 });
+      }
       if (!config.brokerAccount.isDemo && !config.brokerAccount.isLiveAuthorized) {
         return NextResponse.json({ error: "Live trading not authorized" }, { status: 403 });
       }

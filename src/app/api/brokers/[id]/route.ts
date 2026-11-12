@@ -85,10 +85,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = await requireUser();
     const { id } = await params;
     const body = await req.json();
-    const { action, confirm } = body as { action: "enable_live" | "disable_live"; confirm?: string };
+    const { action, confirm, selected } = body as { action: "enable_live" | "disable_live" | "set_selected"; confirm?: string; selected?: boolean };
 
     const account = await db.brokerAccount.findFirst({ where: { id, userId: user.id } });
     if (!account) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (action === "set_selected") {
+      if (typeof selected !== "boolean") return NextResponse.json({ error: "Choose whether this account should be included" }, { status: 400 });
+      if (selected && account.status !== "connected") return NextResponse.json({ error: "Reconnect this account before including it" }, { status: 409 });
+      await db.brokerAccount.update({ where: { id }, data: { isSelectedForCopy: selected } });
+      if (!selected) {
+        await db.replicationConfig.updateMany({ where: { brokerAccountId: id, status: "active" }, data: { status: "paused" } });
+        await db.replicationConfig.updateMany({ where: { sourceBrokerAccountId: id, status: "active" }, data: { status: "paused" } });
+      }
+      await audit({ userId: user.id, brokerAccountId: id, action: "broker.copy_selection", result: "success", details: { selected } });
+      return NextResponse.json({ isSelectedForCopy: selected });
+    }
 
     if (action === "enable_live") {
       if (confirm !== "I AUTHORIZE LIVE TRADING") return NextResponse.json({ error: "Explicit live trading confirmation is required" }, { status: 400 });
@@ -101,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       await db.brokerAccount.update({ where: { id }, data: { isLiveAuthorized: true } });
       await audit({ userId: user.id, brokerAccountId: id, action: "broker.enable_live", result: "success", details: { broker: account.brokerCode } });
-    } else {
+    } else if (action === "disable_live") {
       await db.brokerAccount.update({ where: { id }, data: { isLiveAuthorized: false } });
       await db.replicationConfig.updateMany({ where: { brokerAccountId: id, status: "active" }, data: { status: "paused" } });
       await audit({
@@ -110,6 +122,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         action: "broker.disable_live",
         result: "success",
       });
+    } else {
+      return NextResponse.json({ error: "Unsupported broker account action" }, { status: 400 });
     }
 
     return NextResponse.json({ isLiveAuthorized: action === "enable_live" });

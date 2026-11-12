@@ -111,6 +111,7 @@ interface BrokerAccount {
   leverage?: number | null;
   accountType?: string | null;
   isDemo: boolean;
+  isSelectedForCopy: boolean;
   isLiveAuthorized: boolean;
   status: string;
   authMethod?: string | null;
@@ -244,6 +245,10 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
   });
 
   const accounts = accountsData?.accounts ?? [];
+  const derivAccounts = accounts.filter((account) => account.brokerCode === "deriv");
+  const selectedCount = accounts.filter((account) => account.isSelectedForCopy).length;
+  const derivDemoCount = derivAccounts.filter((account) => account.isDemo).length;
+  const derivLiveCount = derivAccounts.filter((account) => !account.isDemo).length;
 
   // Dialog state
   const [retailDialogBroker, setRetailDialogBroker] = useState<RetailBroker | null>(null);
@@ -357,10 +362,16 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
             <Server className="h-4 w-4 text-primary" />
             <h2 className="text-base font-semibold tracking-tight">Your connected accounts</h2>
           </div>
-          <span className="text-[11px] text-muted-foreground font-mono">
-            {accounts.length} connected
-          </span>
+          <div className="text-right text-[11px] text-muted-foreground font-mono">
+            <div>{accounts.filter((account) => account.status === "connected").length} connected / {accounts.length} linked</div>
+            <div>{derivAccounts.length} Deriv ({derivDemoCount} demo, {derivLiveCount} live) · {selectedCount} selected for copying</div>
+          </div>
         </div>
+        {derivAccounts.length > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            Deriv returned {derivAccounts.length} account{derivAccounts.length === 1 ? "" : "s"}. Choose per account below which ones TRADE LINK may use for copying.
+          </p>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -1277,6 +1288,7 @@ function AccountCard({
   const [positions, setPositions] = useState<any[] | null>(null);
   const [livePositions, setLivePositions] = useState<any[] | null>(null);
   const [loadingPositions, setLoadingPositions] = useState(false);
+  const [savingSelection, setSavingSelection] = useState(false);
 
   const isPropFirm = ["ftmo", "fundednext", "myfundedfx", "the5ers", "propfirm"].includes(account.brokerCode) || !!account.propFirmType;
   const rules: PropFirmRules | undefined = isPropFirm && account.propFirmType
@@ -1331,6 +1343,25 @@ function AccountCard({
       toast({ title: "Refresh failed", description: msg, variant: "destructive" });
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function setCopySelection(selected: boolean) {
+    setSavingSelection(true);
+    try {
+      const res = await fetch(`/api/brokers/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_selected", selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not update account selection");
+      await qc.invalidateQueries({ queryKey: ["broker-accounts"] });
+      toast({ title: selected ? "Account added to TRADE LINK" : "Account removed from TRADE LINK", description: account.accountLabel });
+    } catch (error) {
+      toast({ title: "Account selection failed", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingSelection(false);
     }
   }
 
@@ -1475,7 +1506,7 @@ function AccountCard({
             <Button variant="ghost" size="sm" onClick={refresh} disabled={refreshing} title="Sync from broker">
               {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             </Button>
-            {!liveAuthorized ? (
+            {!liveAuthorized && !account.isDemo && ["mt4", "mt5"].includes(account.brokerCode) ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -1495,6 +1526,19 @@ function AccountCard({
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-md border border-white/10 bg-black/20 px-3 py-2.5">
+          <div>
+            <p className="text-xs font-medium">Use this account for copy trading</p>
+            <p className="text-[10px] text-muted-foreground">Select accounts you want TRADE LINK to use as a source or destination.</p>
+          </div>
+          <Switch
+            checked={account.isSelectedForCopy}
+            onCheckedChange={setCopySelection}
+            disabled={savingSelection || account.status !== "connected"}
+            aria-label={`Use ${account.accountLabel} for copy trading`}
+          />
         </div>
 
         {/* Metric grid */}

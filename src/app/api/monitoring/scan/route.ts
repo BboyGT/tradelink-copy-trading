@@ -58,7 +58,7 @@ async function closeOnce(idempotencyKey: string, sourcePositionId: string, execu
 export async function GET(req: NextRequest) {
   if (!hasServiceBearer(req, "SCANNER_WORKER_TOKEN")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const accounts = await db.brokerAccount.findMany({
-    where: { status: "connected", OR: [{ terminalBridge: { is: { status: "connected" } } }, { brokerCode: { in: ["ctrader", "deriv"] }, authMethod: "oauth" }], sourceReplicationConfigs: { some: { status: "active" } } },
+    where: { status: "connected", isSelectedForCopy: true, OR: [{ terminalBridge: { is: { status: "connected" } } }, { brokerCode: { in: ["ctrader", "deriv"] }, authMethod: "oauth" }], sourceReplicationConfigs: { some: { status: "active" } } },
     select: { id: true }, orderBy: { lastSyncedAt: "asc" }, take: 100,
   });
   return NextResponse.json({ accountIds: accounts.map((account) => account.id) }, { headers: { "cache-control": "no-store" } });
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       where: {
         userId: user.id,
         status: "connected",
+        isSelectedForCopy: true,
         ...(brokerAccountId ? { id: brokerAccountId } : {}),
       },
       include: {
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
                 const destAccount = config.brokerAccount;
                 if (config.executionMode !== "auto") continue;
                 if (destAccount.brokerCode !== "deriv") { totalErrors++; continue; }
-                if (destAccount.status !== "connected" || (!destAccount.isDemo && !destAccount.isLiveAuthorized)) { totalErrors++; continue; }
+                if (destAccount.status !== "connected" || !destAccount.isSelectedForCopy || (!destAccount.isDemo && !destAccount.isLiveAuthorized)) { totalErrors++; continue; }
                 const product = event.productMetadata ?? {};
                 const sourceCurrency = String(product.currency ?? "").toUpperCase();
                 if (!sourceCurrency || sourceCurrency !== destAccount.currency.toUpperCase()) { totalErrors++; continue; }
@@ -252,7 +253,7 @@ export async function POST(req: NextRequest) {
                 totalErrors++;
                 continue;
               }
-              if (config.brokerAccount.status !== "connected" || (!config.brokerAccount.isDemo && !config.brokerAccount.isLiveAuthorized)) {
+              if (config.brokerAccount.status !== "connected" || !config.brokerAccount.isSelectedForCopy || (!config.brokerAccount.isDemo && !config.brokerAccount.isLiveAuthorized)) {
                 totalErrors++;
                 continue;
               }
