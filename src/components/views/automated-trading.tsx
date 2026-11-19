@@ -1355,12 +1355,12 @@ const EXECUTION_OPTIONS: ExecutionOption[] = [
   },
   {
     mode: "auto",
-    title: "Auto-approve",
+    title: "Automatic copy",
     description:
-      "Runs simulated trades on practice accounts. Live broker execution is not available yet.",
+      "After you resume the paused config, new source positions are sent as orders to the selected destination. Demo accounts use virtual funds; live accounts can place real trades after live authorization.",
     icon: Zap,
-    tag: "Recommended",
-    tagTone: "profit",
+    tag: "Requires review",
+    tagTone: "warning",
   },
   {
     mode: "notify_only",
@@ -1398,7 +1398,7 @@ function StepExecution({
       <div>
         <h2 className="text-lg font-semibold">When should trades execute?</h2>
         <p className="text-sm text-muted-foreground">
-          How do you want trades to be handled?
+          New configurations start paused. Automatic copy only starts after you review the source, destination, sizing, and risk settings and explicitly resume it. Live destinations can receive real orders.
         </p>
       </div>
 

@@ -58,6 +58,11 @@ export default function Home() {
   const stats = data?.stats ?? {
     totalBalance: 0,
     totalEquity: 0,
+    liveBalanceByCurrency: {},
+    liveEquityByCurrency: {},
+    liveUnrealizedPLByCurrency: {},
+    demoBalanceByCurrency: {},
+    demoAccountCount: 0,
     connectedBrokers: 0,
     activeReplications: 0,
     subscribedProviders: 0,

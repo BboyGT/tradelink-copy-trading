@@ -33,17 +33,23 @@ export function DashboardView({ user, stats, hasLiveAccount }: DashboardViewProp
 
   const recommendations = recsData?.recommendations ?? [];
 
+  const formatCurrencyBuckets = (totals?: Record<string, number>) => {
+    const entries = Object.entries(totals ?? {});
+    if (!entries.length) return "—";
+    return entries.map(([currency, amount]) => formatCurrency(amount, currency)).join(" / ");
+  };
+
   if (!user) {
     return <LandingHero onSignIn={() => setAuthOpen(true)} onGetStarted={() => setAuthOpen(true)} />;
   }
 
   const statCards = [
-    { label: "Total Balance", value: formatCurrency(stats.totalBalance ?? 0), icon: Wallet, accent: "text-info" },
-    { label: "Total Equity", value: formatCurrency(stats.totalEquity ?? 0), icon: Activity, accent: "text-primary" },
-    { label: "Unrealized P/L", value: formatCurrency((stats.totalEquity ?? 0) - (stats.totalBalance ?? 0)), icon: stats.totalEquity >= stats.totalBalance ? TrendingUp : TrendingDown, accent: (stats.totalEquity ?? 0) >= (stats.totalBalance ?? 0) ? "text-profit" : "text-loss" },
-    { label: "Connected Brokers", value: stats.connectedBrokers ?? 0, icon: Link2, accent: "text-info" },
-    { label: "Active Replications", value: stats.activeReplications ?? 0, icon: Bot, accent: "text-primary" },
-    { label: "Subscribed Providers", value: stats.subscribedProviders ?? 0, icon: Activity, accent: "text-info" },
+    { label: "Live balance", detail: "Connected live accounts", value: formatCurrencyBuckets(stats.liveBalanceByCurrency), icon: Wallet, accent: "text-info" },
+    { label: "Live equity", detail: "Connected live accounts", value: formatCurrencyBuckets(stats.liveEquityByCurrency), icon: Activity, accent: "text-primary" },
+    { label: "Live unrealized P/L", detail: "Excludes demo accounts", value: formatCurrencyBuckets(stats.liveUnrealizedPLByCurrency), icon: Activity, accent: "text-primary" },
+    { label: "Demo funds", detail: `${stats.demoAccountCount ?? 0} practice accounts · virtual funds`, value: formatCurrencyBuckets(stats.demoBalanceByCurrency), icon: Wallet, accent: "text-warning" },
+    { label: "Connected accounts", detail: "Demo and live", value: stats.connectedBrokers ?? 0, icon: Link2, accent: "text-info" },
+    { label: "Active replications", detail: "Currently monitoring", value: stats.activeReplications ?? 0, icon: Bot, accent: "text-primary" },
   ];
 
   return (
@@ -77,6 +83,7 @@ export function DashboardView({ user, stats, hasLiveAccount }: DashboardViewProp
                 </div>
                 <div className={`text-lg font-semibold tnum font-mono ${s.accent}`}>{s.value}</div>
                 <div className="rm-label mt-0.5">{s.label}</div>
+                <div className="text-[9px] text-muted-foreground mt-1 leading-tight">{s.detail}</div>
               </CardContent>
             </Card>
           );

@@ -43,9 +43,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
       const sourceIsTerminal = !!config.sourceBrokerAccount && ["mt4", "mt5"].includes(config.sourceBrokerAccount.brokerCode);
       const sourceIsCTrader = config.sourceBrokerAccount?.brokerCode === "ctrader" && config.sourceBrokerAccount.authMethod === "oauth";
+      const sourceIsDeriv = config.sourceBrokerAccount?.brokerCode === "deriv" && config.sourceBrokerAccount.authMethod === "oauth";
       const destinationIsTerminal = ["mt4", "mt5"].includes(config.brokerAccount.brokerCode);
       const destinationIsCTrader = config.brokerAccount.brokerCode === "ctrader" && config.brokerAccount.authMethod === "oauth";
-      if (!config.sourceBrokerAccount || (!sourceIsTerminal && !sourceIsCTrader) || (!destinationIsTerminal && !destinationIsCTrader)) return NextResponse.json({ error: "Replication requires a connected MT4/MT5 terminal or cTrader OAuth account at both ends" }, { status: 409 });
+      const destinationIsDeriv = config.brokerAccount.brokerCode === "deriv" && config.brokerAccount.authMethod === "oauth";
+      if (!config.sourceBrokerAccount || (!sourceIsTerminal && !sourceIsCTrader && !sourceIsDeriv) || (!destinationIsTerminal && !destinationIsCTrader && !destinationIsDeriv)) return NextResponse.json({ error: "Replication requires connected Deriv or cTrader OAuth accounts, or online MT4/MT5 terminals" }, { status: 409 });
+      if (sourceIsDeriv !== destinationIsDeriv) return NextResponse.json({ error: "Deriv Options copying is supported only between two Deriv accounts" }, { status: 409 });
+      if (sourceIsDeriv && config.sourceBrokerAccount.currency.toUpperCase() !== config.brokerAccount.currency.toUpperCase()) return NextResponse.json({ error: "Deriv Options source and destination accounts must use the same currency" }, { status: 409 });
       if (!process.env.SCANNER_WORKER_TOKEN || process.env.SCANNER_WORKER_TOKEN.length < 32) return NextResponse.json({ error: "Persistent copy worker is not configured" }, { status: 503 });
       const bridgeAccounts = [
         ...(sourceIsTerminal ? [config.sourceBrokerAccount] : []),
@@ -55,10 +59,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const bridge = await db.terminalBridge.findUnique({ where: { brokerAccountId: account.id } });
         if (!bridge || bridge.status !== "connected" || !bridge.lastHeartbeatAt || Date.now() - bridge.lastHeartbeatAt.getTime() > 20_000) return NextResponse.json({ error: `${account.accountLabel} terminal is offline` }, { status: 409 });
       }
-      if (sourceIsCTrader || destinationIsCTrader) {
+      if (sourceIsCTrader || destinationIsCTrader || sourceIsDeriv || destinationIsDeriv) {
         const { getAccountConnector } = await import("@/lib/broker/connector");
-        for (const account of [sourceIsCTrader ? config.sourceBrokerAccount : null, destinationIsCTrader ? config.brokerAccount : null].filter(Boolean)) {
-          const connector = await getAccountConnector("ctrader", account!.id, { accountId: account!.externalAccountId ?? undefined });
+        for (const account of [sourceIsCTrader || sourceIsDeriv ? config.sourceBrokerAccount : null, destinationIsCTrader || destinationIsDeriv ? config.brokerAccount : null].filter(Boolean)) {
+          const connector = await getAccountConnector(account!.brokerCode as any, account!.id, { accountId: account!.externalAccountId ?? undefined });
           await connector.getAccountInfo();
         }
       }
