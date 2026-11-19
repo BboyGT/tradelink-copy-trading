@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavStore } from "@/lib/nav-store";
 import { formatPct, formatNumber } from "@/lib/format";
 import { DataQualityBadge, HealthBadge } from "@/components/badges";
-import { Search, Star, ArrowUpRight } from "lucide-react";
+import { Search, Star, ArrowUpRight, ExternalLink } from "lucide-react";
 
 async function fetchProviders(params: { search?: string; platform?: string; sortBy?: string }) {
   const qs = new URLSearchParams();
@@ -48,6 +48,25 @@ export function DiscoverView({ user }: { user: any }) {
           </p>
         </div>
       </div>
+
+      <Card className="rm-glass border-primary/20">
+        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">Copy a cTrader Copy strategy through TradeLink</p>
+            <p className="text-xs text-muted-foreground max-w-3xl">
+              cTrader does not expose its public strategy directory through Open API, so those profiles cannot be imported into this list. Browse and start copying a strategy in cTrader first, then connect the cTrader account receiving those trades here and use it as your source account. TradeLink can mirror its open-position changes to selected destination accounts while monitoring is running; unattended copying also needs a persistent scanner worker. It does not import the public provider directory or past trade history.
+            </p>
+          </div>
+          <a
+            href="https://ctrader.com/copy"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-primary/10 hover:border-primary/30"
+          >
+            Browse cTrader Copy <ExternalLink className="ml-2 h-3.5 w-3.5" />
+          </a>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card className="rm-glass">

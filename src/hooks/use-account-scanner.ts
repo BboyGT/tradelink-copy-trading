@@ -81,6 +81,7 @@ export function useAccountScanner(userId: string | null | undefined, interval = 
     if (!userId) return;
 
     // Initial scan
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Starting the scan is the effect's external synchronization work.
     scan();
 
     // Set up periodic scanning

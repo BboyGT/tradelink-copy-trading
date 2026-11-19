@@ -143,6 +143,8 @@ export function BacktestingView({ user }: { user: any }) {
   // Auto-fill source equity from provider.startingBalance
   useEffect(() => {
     if (analytics?.provider?.startingBalance) {
+      // Hydrate the editable source-equity field from the selected provider's API data.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSourceEquity(analytics.provider.startingBalance);
     }
   }, [analytics?.provider?.startingBalance]);

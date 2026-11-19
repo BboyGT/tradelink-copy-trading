@@ -36,16 +36,17 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
     const body = await req.json();
+    const userSettings = await db.userSettings.findUnique({ where: { userId: user.id } });
     const {
       providerId,
       sourceBrokerAccountId,
       brokerAccountId,
-      executionMode = "approval",
-      sizingMode = "equity_ratio",
+      executionMode = userSettings?.defaultExecutionMode ?? "approval",
+      sizingMode = userSettings?.defaultSizingMode ?? "equity_ratio",
       equityMultiplier = 1,
       fixedLotSize,
       riskPerTradePct,
-      riskReferenceBase = "equity",
+      riskReferenceBase = userSettings?.defaultRiskReferenceBase ?? "equity",
       fixedReferenceCapital,
       maxLotSize,
       minLotSize,

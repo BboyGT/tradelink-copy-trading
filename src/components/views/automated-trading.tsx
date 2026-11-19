@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,7 @@ interface ReplicationConfig {
   brokerAccountId: string;
   executionMode: ExecutionMode;
   sizingMode: SizingMode;
+  riskReferenceBase: "balance" | "equity" | "fixed_capital";
   equityMultiplier: number;
   fixedLotSize: number | null;
   riskPerTradePct: number | null;
@@ -602,6 +603,7 @@ interface WizardState {
   sourceAccountId: string;
   destinationAccountId: string;
   sizingMode: SizingMode;
+  riskReferenceBase: "balance" | "equity" | "fixed_capital";
   equityMultiplier: number;
   fixedLotSize: number;
   riskPerTradePct: number;
@@ -616,6 +618,7 @@ const INITIAL_WIZARD: WizardState = {
   sourceAccountId: "",
   destinationAccountId: "",
   sizingMode: "equity_ratio",
+  riskReferenceBase: "equity",
   equityMultiplier: 1,
   fixedLotSize: 0.01,
   riskPerTradePct: 1,
@@ -641,6 +644,23 @@ function CreateReplicationWizard({
   const { toast } = useToast();
   const [state, setState] = useState<WizardState>(INITIAL_WIZARD);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let current = true;
+    fetch("/api/settings").then(async (response) => {
+      if (!response.ok) return;
+      const result = await response.json();
+      if (!current || !result.settings) return;
+      setState((previous) => ({
+        ...previous,
+        sizingMode: result.settings.defaultSizingMode ?? previous.sizingMode,
+        executionMode: result.settings.defaultExecutionMode ?? previous.executionMode,
+        riskReferenceBase: result.settings.defaultRiskReferenceBase ?? previous.riskReferenceBase,
+      }));
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [open]);
 
   function reset() {
     setState(INITIAL_WIZARD);
@@ -694,6 +714,7 @@ function CreateReplicationWizard({
           brokerAccountId: state.destinationAccountId,
           executionMode: state.executionMode,
           sizingMode: state.sizingMode,
+          riskReferenceBase: state.riskReferenceBase,
           equityMultiplier: state.equityMultiplier,
           fixedLotSize:
             state.sizingMode === "fixed_lot" ? state.fixedLotSize : undefined,

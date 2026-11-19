@@ -28,6 +28,8 @@ export function useTradeEvents(userId: string | null | undefined, _liveMode?: bo
     if (!userId) return;
     let active = true;
     let socket: Socket | null = null;
+    // A user change tears down the previous external socket subscription.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnected(false);
 
     fetch("/api/events/socket-token", { method: "POST" })

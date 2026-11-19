@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavStore } from "@/lib/nav-store";
 import { DemoBadge } from "@/components/badges";
 import { signOut } from "next-auth/react";
-import { User, Bell, Shield, Globe, LogOut, AlertTriangle, Loader2 } from "lucide-react";
+import { User, Bell, Shield, Globe, LogOut, Loader2, LockKeyhole, Clock3, AlertTriangle } from "lucide-react";
 
 // Mirrors DEFAULT_SETTINGS in /api/settings/route.ts so the form has consistent
 // shapes before the UserSettings row exists or while it's loading.
@@ -36,8 +36,12 @@ type Settings = typeof DEFAULT_SETTINGS;
 // PUT accepts partial updates; we additionally allow `name` (the Account tab
 // saves the profile name through the same endpoint).
 type SettingsPayload = Partial<Settings> & { name?: string };
+type SettingsResponse = {
+  settings: Settings;
+  profile?: { name: string | null; email: string; createdAt: string; hasPassword: boolean } | null;
+};
 
-async function fetchSettings(): Promise<{ settings: Settings }> {
+async function fetchSettings(): Promise<SettingsResponse> {
   const res = await fetch("/api/settings");
   if (!res.ok) throw new Error("Failed to load settings");
   return res.json();
@@ -66,11 +70,11 @@ const CHANNEL_FIELD = {
 
 type ChannelKey = keyof typeof CHANNEL_FIELD;
 
-const CHANNELS: { key: ChannelKey; label: string; desc: string }[] = [
-  { key: "in_app", label: "In-app notifications", desc: "Always-on; appears in the bell icon" },
-  { key: "push", label: "Push notifications", desc: "Browser/mobile push (requires permission)" },
-  { key: "email", label: "Email", desc: "Sent to your registered email" },
-  { key: "telegram", label: "Telegram", desc: "Requires Telegram bot authorization" },
+const CHANNELS: { key: ChannelKey; label: string; desc: string; available: boolean }[] = [
+  { key: "in_app", label: "In-app notifications", desc: "Alerts appear in the notification bell.", available: true },
+  { key: "push", label: "Push notifications", desc: "Browser push delivery is not configured yet.", available: false },
+  { key: "email", label: "Email notifications", desc: "Email delivery is not configured yet.", available: false },
+  { key: "telegram", label: "Telegram notifications", desc: "Telegram bot delivery is not configured yet.", available: false },
 ];
 
 export function SettingsView({ user }: { user: any }) {
@@ -91,16 +95,27 @@ export function SettingsView({ user }: { user: any }) {
   const [savingName, setSavingName] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [togglingKey, setTogglingKey] = useState<ChannelKey | null>(null);
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Sync fetched settings into local form state whenever the cache updates
   useEffect(() => {
+    // These are editable controls; copy server-loaded preferences into their form state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (data?.settings) setSettings(data.settings);
   }, [data]);
 
   // Sync name from the user prop
   useEffect(() => {
-    if (typeof user?.name === "string") setName(user.name);
-  }, [user?.name]);
+    const profileName = data?.profile?.name;
+    // Sync server-loaded profile name into the editable account field.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (typeof profileName === "string") setName(profileName);
+    else if (typeof user?.name === "string") setName(user.name);
+  }, [user?.name, data?.profile?.name]);
 
   // Surface fetch errors as toasts
   useEffect(() => {
@@ -180,6 +195,8 @@ export function SettingsView({ user }: { user: any }) {
         reportingCurrency: settings.reportingCurrency,
         defaultSizingMode: settings.defaultSizingMode,
         defaultExecutionMode: settings.defaultExecutionMode,
+        defaultRiskReferenceBase: settings.defaultRiskReferenceBase,
+        telegramChatId: settings.telegramChatId,
       });
       toast({ title: "Saved", description: "Preferences updated." });
       qc.invalidateQueries({ queryKey: ["settings"] });
@@ -194,6 +211,29 @@ export function SettingsView({ user }: { user: any }) {
     }
   }
 
+  async function changePassword() {
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords do not match", description: "Re-enter the new password and confirmation.", variant: "destructive" });
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const response = await fetch("/api/settings/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Password could not be updated.");
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setPasswordFormOpen(false);
+      toast({ title: "Password changed", description: "Your password has been updated." });
+    } catch (error) {
+      toast({ title: "Could not change password", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -202,6 +242,14 @@ export function SettingsView({ user }: { user: any }) {
         </h1>
         <p className="text-sm text-muted-foreground">Manage your account, notification preferences, and security.</p>
       </div>
+      {isError && (
+        <Card className="rm-glass border-destructive/30">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <p className="text-sm text-muted-foreground">Settings could not be loaded. Your unsaved form values may not reflect the saved preferences.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="account">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
@@ -252,6 +300,10 @@ export function SettingsView({ user }: { user: any }) {
                         </Badge>
                       </div>
                     </div>
+                    {data?.profile?.createdAt && <div className="space-y-1">
+                      <Label className="text-xs">Member since</Label>
+                      <div className="text-sm text-muted-foreground">{new Date(data.profile.createdAt).toLocaleDateString()}</div>
+                    </div>}
                   </div>
                   <Button onClick={saveAccount} disabled={savingName}>
                     {savingName ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
@@ -289,42 +341,17 @@ export function SettingsView({ user }: { user: any }) {
                   const isToggling = togglingKey === c.key;
                   return (
                     <div key={c.key} className="flex items-center justify-between py-2">
-                      <div>
+                      <div className="pr-4">
                         <div className="text-sm font-medium">{c.label}</div>
                         <div className="text-[11px] text-muted-foreground">{c.desc}</div>
                       </div>
-                      <Switch
-                        checked={checked}
-                        disabled={isToggling}
-                        onCheckedChange={(v) => toggleChannel(c.key, v)}
-                      />
+                      {c.available ? (
+                        <Switch checked={checked} disabled={isToggling} onCheckedChange={(v) => toggleChannel(c.key, v)} />
+                      ) : <Badge variant="outline" className="shrink-0 text-[10px]">Not configured</Badge>}
                     </div>
                   );
                 })
               )}
-            </CardContent>
-          </Card>
-
-          {/* Per-provider preferences - placeholder until the provider picker UI lands. */}
-          <Card className="rm-glass mt-3">
-            <CardHeader>
-              <CardTitle className="text-base">Per-provider preferences</CardTitle>
-              <CardDescription>Configure which events trigger alerts per provider or per account.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-[11px] text-muted-foreground flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-warning">Coming soon:</strong> The backend already supports per-provider and
-                  per-account overrides at{" "}
-                  <code className="font-mono text-[10px]">/api/notification-preferences</code>, but the picker UI for
-                  selecting providers is not wired up yet.
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Visit each provider&apos;s analytics page to configure provider-specific notification preferences.
-                Visit each broker account page to configure account-specific preferences.
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -333,31 +360,38 @@ export function SettingsView({ user }: { user: any }) {
           <Card className="rm-glass">
             <CardHeader><CardTitle className="text-base">Security</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 rounded-md border border-white/5 bg-black/40">
+              <div className="p-3 rounded-md border border-white/5 bg-black/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">Password</div>
-                    <div className="text-[11px] text-muted-foreground">Last changed: unknown</div>
+                    <div className="text-[11px] text-muted-foreground">Use your current password to verify changes. New passwords must be at least 12 characters.</div>
                   </div>
-                  <Button variant="outline" size="sm">Change password</Button>
+                  <Button variant="outline" size="sm" onClick={() => setPasswordFormOpen((open) => !open)} disabled={!data?.profile?.hasPassword}>
+                    <LockKeyhole className="h-3.5 w-3.5 mr-1.5" /> Change password
+                  </Button>
                 </div>
+                {!data?.profile?.hasPassword && <p className="text-[11px] text-muted-foreground">This account does not currently use password sign-in.</p>}
+                {passwordFormOpen && (
+                  <div className="grid gap-3 border-t border-white/10 pt-3 sm:grid-cols-2">
+                    <div className="space-y-1 sm:col-span-2"><Label htmlFor="current-password">Current password</Label><Input id="current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></div>
+                    <div className="space-y-1"><Label htmlFor="new-password">New password</Label><Input id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div>
+                    <div className="space-y-1"><Label htmlFor="confirm-password">Confirm new password</Label><Input id="confirm-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></div>
+                    <div className="sm:col-span-2 flex gap-2">
+                      <Button onClick={changePassword} disabled={savingPassword || !currentPassword || newPassword.length < 12 || !confirmPassword}>
+                        {savingPassword ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null} Update password
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setPasswordFormOpen(false); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="p-3 rounded-md border border-white/5 bg-black/40">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium">Two-factor authentication</div>
-                    <div className="text-[11px] text-muted-foreground">Recommended for accounts with live broker connections</div>
+                    <div className="text-sm font-medium flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> Sign-in session</div>
+                    <div className="text-[11px] text-muted-foreground">Sessions expire after 12 hours. Password changes do not revoke existing sessions yet. Two-factor authentication and remote session management are not available.</div>
                   </div>
-                  <Switch />
-                </div>
-              </div>
-              <div className="p-3 rounded-md border border-white/5 bg-black/40">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">Active sessions</div>
-                    <div className="text-[11px] text-muted-foreground">Sign out of other devices</div>
-                  </div>
-                  <Button variant="outline" size="sm">Manage sessions</Button>
+                  <Badge variant="outline" className="shrink-0">12 hours</Badge>
                 </div>
               </div>
               <div className="p-3 rounded-md rm-glass-gold">
@@ -432,6 +466,21 @@ export function SettingsView({ user }: { user: any }) {
                       <option value="auto">Fully automatic</option>
                       <option value="notify_only">Notification only</option>
                     </select>
+                    <p className="text-[10px] text-muted-foreground">This default applies to new replication configurations only. New configurations start paused; automatic execution still requires explicit authorization and activation.</p>
+                  </div>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-xs">Default risk reference</Label>
+                    <select
+                      value={settings.defaultRiskReferenceBase}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, defaultRiskReferenceBase: e.target.value }))}
+                      className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm font-mono uppercase tracking-wider text-white focus-visible:border-primary/40 focus-visible:ring-primary/20 focus-visible:ring-[3px] outline-none"
+                    >
+                      <option value="equity">Equity</option>
+                      <option value="balance">Balance</option>
+                      <option value="fixed_capital">Fixed capital</option>
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">Used by new risk-based replication configurations.</p>
                   </div>
                   <Button onClick={savePreferences} disabled={savingPrefs}>
                     {savingPrefs ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}

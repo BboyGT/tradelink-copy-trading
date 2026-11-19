@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { NotificationsSheet } from "@/components/notifications-sheet";
@@ -25,7 +26,6 @@ import { SettingsView } from "@/components/views/settings";
 import { WatchlistsView } from "@/components/views/watchlists";
 import { InstrumentMappingView } from "@/components/views/instrument-mapping";
 import { viewFromPath } from "@/lib/view-routes";
-import type { AppView } from "@/lib/types";
 
 async function fetchMe() {
   const res = await fetch("/api/me");
@@ -33,7 +33,8 @@ async function fetchMe() {
   return res.json();
 }
 
-export default function Home({ initialView = "dashboard" }: { initialView?: AppView }) {
+export default function Home() {
+  const pathname = usePathname();
   const view = useNavStore((s) => s.view);
   const setAuthOpen = useNavStore((s) => s.setAuthOpen);
   const setView = useNavStore((s) => s.setView);
@@ -43,14 +44,8 @@ export default function Home({ initialView = "dashboard" }: { initialView?: AppV
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
 
   useEffect(() => {
-    syncViewFromUrl(initialView);
-    const syncOnHistoryNavigation = () => {
-      const view = viewFromPath(window.location.pathname);
-      if (view) syncViewFromUrl(view);
-    };
-    window.addEventListener("popstate", syncOnHistoryNavigation);
-    return () => window.removeEventListener("popstate", syncOnHistoryNavigation);
-  }, [initialView, syncViewFromUrl]);
+    syncViewFromUrl(viewFromPath(pathname) ?? "dashboard");
+  }, [pathname, syncViewFromUrl]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["me"],

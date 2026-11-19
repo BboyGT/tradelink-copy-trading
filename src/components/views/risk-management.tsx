@@ -1062,6 +1062,8 @@ function PortfolioLimitsTab() {
 
   useEffect(() => {
     if (existing) {
+      // Hydrate the editable portfolio form when its saved server record arrives.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         maxDrawdownPct: existing.maxDrawdownPct ?? DEFAULT_PORTFOLIO.maxDrawdownPct,
         maxDailyLossPct: existing.maxDailyLossPct ?? DEFAULT_PORTFOLIO.maxDailyLossPct,
@@ -1570,6 +1572,8 @@ function ProviderLimitsTab() {
 
   useEffect(() => {
     if (existing) {
+      // Hydrate the editable provider form when its saved server record arrives.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         maxProviderDrawdownPct:
           existing.maxProviderDrawdownPct ?? DEFAULT_PROVIDER.maxProviderDrawdownPct,
@@ -1580,6 +1584,7 @@ function ProviderLimitsTab() {
         notifyOnBreach: existing.notifyOnBreach ?? true,
       });
     } else {
+      // Reset the editable provider form when changing to a provider without saved rules.
       setForm(DEFAULT_PROVIDER);
     }
   }, [selectedProviderId, existing]);

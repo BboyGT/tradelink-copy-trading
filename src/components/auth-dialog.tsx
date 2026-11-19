@@ -162,9 +162,13 @@ export function AuthDialog() {
         }), 25_000, "Sign-up timed out. If you already submitted this email, try signing in.");
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          if (res.status === 409) throw new Error("An account may already exist with this email. Try the Sign in tab.");
+          if (res.status === 409) throw new Error("An account already exists with this email. Try signing in.");
           throw new Error(data.error ?? "Registration failed");
         }
+        setPassword("");
+        setMode("login");
+        toast({ title: "Account created", description: "Your account is ready. Sign in to continue." });
+        return;
       }
       const result = await withTimeout(
         signIn("credentials", { email, password, redirect: false }),

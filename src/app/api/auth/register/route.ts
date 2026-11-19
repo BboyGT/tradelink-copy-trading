@@ -18,7 +18,6 @@ export async function POST(req: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || password.length < 12 || password.length > 128 || name.length > 80) {
       return NextResponse.json({ error: "Enter a valid email, a password of 12–128 characters, and a name no longer than 80 characters." }, { status: 400 });
     }
-
     const clientIp = (req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",").at(-1) ?? "unknown").trim().slice(0, 128);
     const [ipLimit, emailLimit] = await Promise.all([
       consumeRateLimit("register-ip", clientIp, 60 * 60 * 1000, 10),

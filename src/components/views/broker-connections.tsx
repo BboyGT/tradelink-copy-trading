@@ -238,7 +238,7 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
   const qc = useQueryClient();
   const oauthNoticeHandled = useRef(false);
 
-  const { data: accountsData, isLoading } = useQuery({
+  const { data: accountsData, isLoading, isError, refetch: refetchAccounts } = useQuery({
     queryKey: ["broker-accounts"],
     queryFn: fetchAccounts,
     enabled: !!user,
@@ -262,8 +262,6 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
     window.history.replaceState(window.history.state, "", window.location.pathname);
     if (success) {
       toast({ title: "Broker connected", description: `${success}. Your accounts are listed below.` });
-      void qc.invalidateQueries({ queryKey: ["broker-accounts"] });
-      onConnected();
     } else if (error) {
       toast({ title: "Broker connection failed", description: error.slice(0, 180), variant: "destructive" });
     }
@@ -399,6 +397,15 @@ export function BrokerConnectionsView({ user, onConnected }: BrokerConnectionsVi
               <Skeleton key={i} className="h-40 w-full" />
             ))}
           </div>
+        ) : isError ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-muted-foreground">Your accounts are linked, but the account list could not be loaded.</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetchAccounts()}>
+                <RefreshCw className="h-3.5 w-3.5 mr-2" /> Retry account loading
+              </Button>
+            </CardContent>
+          </Card>
         ) : accounts.length === 0 ? (
           <Card>
             <CardContent className="p-10 text-center">

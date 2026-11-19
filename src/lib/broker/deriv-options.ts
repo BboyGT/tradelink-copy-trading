@@ -162,7 +162,8 @@ export class DerivOptionsConnector implements BrokerConnector {
         const finish = (error?: Error, data?: Record<string, any>) => {
           clearTimeout(timer);
           try { socket.close(); } catch { /* ignore close failure */ }
-          error ? reject(error) : resolve(data ?? {});
+          if (error) reject(error);
+          else resolve(data ?? {});
         };
         socket.addEventListener("open", () => socket.send(JSON.stringify({ ...payload, req_id: reqId })));
         socket.addEventListener("message", (event: MessageEvent) => {

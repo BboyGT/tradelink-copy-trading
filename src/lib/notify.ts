@@ -13,6 +13,8 @@ export async function sendNotification(
     channels?: string[];
   },
 ) {
+  const settings = await db.userSettings.findUnique({ where: { userId }, select: { notifInApp: true } });
+  if (settings?.notifInApp === false) return null;
   return db.notification.create({
     data: {
       userId,

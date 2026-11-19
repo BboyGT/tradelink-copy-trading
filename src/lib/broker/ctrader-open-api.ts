@@ -19,6 +19,12 @@ function numberField(value: unknown, label: string) {
   return n;
 }
 
+function int64Field(value: unknown, label: string) {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n <= 0) throw new Error(`cTrader returned an invalid or unsupported ${label}`);
+  return n;
+}
+
 async function openApiRequests(auth: CTraderAuth, requests: RequestSpec[]): Promise<Json[]> {
   const WebSocketConstructor = globalThis.WebSocket;
   if (!WebSocketConstructor) throw new Error("WebSocket is not available in this Node.js runtime");
@@ -58,7 +64,7 @@ async function openApiRequests(auth: CTraderAuth, requests: RequestSpec[]): Prom
         if (type === 50 || type === 2142) throw new Error(String(payload.description ?? payload.errorCode ?? "cTrader request failed"));
         if (stage === "application" && type === 2101) {
           stage = "account";
-          send("account-auth", 2102, { ctidTraderAccountId: accountId, accessToken: auth.accessToken });
+          send("account-auth", 2102, { ctidTraderAccountId: int64Field(accountId, "account ID"), accessToken: auth.accessToken });
           return;
         }
         if (stage === "account" && type === 2103) {
@@ -147,7 +153,10 @@ export class CTraderOpenApiConnector implements BrokerConnector {
   private async request(requests: RequestSpec[]) {
     if (!this.authorized || !this.auth) throw new Error("cTrader account is not authorized");
     await this.ensureToken();
-    return openApiRequests(this.auth, requests.map((request) => ({ ...request, payload: { ...request.payload, ctidTraderAccountId: this.auth!.ctidTraderAccountId } })));
+    return openApiRequests(this.auth, requests.map((request) => ({
+      ...request,
+      payload: { ...request.payload, ctidTraderAccountId: int64Field(this.auth!.ctidTraderAccountId, "account ID") },
+    })));
   }
 
   private async symbolCatalog(requiredIds?: string[]) {
@@ -159,7 +168,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
     const wanted = requiredIds ? new Set(requiredIds) : undefined;
     const selected = wanted ? lightSymbols.filter((symbol) => wanted.has(String(symbol.symbolId))) : lightSymbols;
     if (wanted && selected.length !== wanted.size) throw new Error("cTrader could not resolve all symbols for current positions");
-    const [full] = await this.request([{ payloadType: 2116, expectedType: 2117, payload: { symbolId: selected.map((symbol) => String(symbol.symbolId)) } }]);
+    const [full] = await this.request([{ payloadType: 2116, expectedType: 2117, payload: { symbolId: selected.map((symbol) => int64Field(symbol.symbolId, "symbol ID")) } }]);
     const newSymbols = Array.isArray(full.symbol) ? full.symbol as Json[] : [];
     this.symbols = [...new Map<string, Json>([...this.symbols, ...newSymbols].map((symbol): [string, Json] => [String(symbol.symbolId), symbol])).values()];
     this.symbolsLoadedAt = Date.now();
@@ -290,7 +299,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
     const [execution] = await this.request([{
       payloadType: 2106, expectedType: 2126, errorTypes: [2132],
       payload: {
-        symbolId: String(symbol.symbolId), orderType: 1, tradeSide: request.direction === "BUY" ? 1 : 2,
+        symbolId: int64Field(symbol.symbolId, "symbol ID"), orderType: 1, tradeSide: request.direction === "BUY" ? 1 : 2,
         volume: Math.round(request.volume * lotSize), label,
       },
       continueWhen: (payload) => Number(payload.executionType) === 2 || Number(payload.executionType) === 11,
@@ -325,7 +334,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
     try {
       const [event] = await this.request([{
         payloadType: 2110, expectedType: 2126, errorTypes: [2132],
-        payload: { positionId: String(positionId), ...(updates.stopLoss !== undefined ? { stopLoss: updates.stopLoss } : {}), ...(updates.takeProfit !== undefined ? { takeProfit: updates.takeProfit } : {}) },
+        payload: { positionId: int64Field(positionId, "position ID"), ...(updates.stopLoss !== undefined ? { stopLoss: updates.stopLoss } : {}), ...(updates.takeProfit !== undefined ? { takeProfit: updates.takeProfit } : {}) },
       }]);
       if (Number(event.executionType) === 7) return { success: false, rejectionReason: String(event.errorCode ?? "cTrader rejected protection update") };
       const currentPositions = await this.getOpenPositions();
@@ -346,7 +355,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
       const position = (Array.isArray(reconcile.position) ? reconcile.position as Json[] : []).find((row) => String(row.positionId) === String(positionId));
       if (!position) return { success: false, rejectionReason: "cTrader position was not found during reconciliation" };
       const trade = position.tradeData as Json;
-      const [symbol] = await this.request([{ payloadType: 2116, expectedType: 2117, payload: { symbolId: [String(trade.symbolId)] } }]);
+      const [symbol] = await this.request([{ payloadType: 2116, expectedType: 2117, payload: { symbolId: [int64Field(trade.symbolId, "symbol ID")] } }]);
       const metadata = (Array.isArray(symbol.symbol) ? symbol.symbol as Json[] : [])[0];
       const lotSize = numberField(metadata?.lotSize, "position lot size");
       const openLots = Number(trade.volume) / lotSize;
@@ -354,7 +363,7 @@ export class CTraderOpenApiConnector implements BrokerConnector {
       if (!Number.isFinite(closeLots) || closeLots <= 0 || closeLots > openLots + 1e-8) return { success: false, rejectionReason: "Requested cTrader close volume is invalid" };
       const [event] = await this.request([{
         payloadType: 2111, expectedType: 2126, errorTypes: [2132],
-        payload: { positionId: String(positionId), volume: Math.min(Number(trade.volume), Math.round(closeLots * lotSize)) },
+        payload: { positionId: int64Field(positionId, "position ID"), volume: Math.min(Number(trade.volume), Math.round(closeLots * lotSize)) },
         continueWhen: (payload) => Number(payload.executionType) === 2,
       }]);
       if (Number(event.executionType) !== 3 || !event.deal) return { success: false, rejectionReason: String(event.errorCode ?? "cTrader did not confirm a filled close") };
