@@ -13,6 +13,25 @@ import { formatPct, formatNumber } from "@/lib/format";
 import { DataQualityBadge, HealthBadge } from "@/components/badges";
 import { Search, Star, ArrowUpRight, ExternalLink } from "lucide-react";
 
+interface ConnectedAccount {
+  id: string;
+  brokerCode: string;
+  accountLabel: string;
+  balance: number;
+  equity: number;
+  currency: string;
+  isDemo: boolean;
+  isSelectedForCopy: boolean;
+  status: string;
+  authMethod?: string | null;
+}
+
+async function fetchConnectedAccounts() {
+  const res = await fetch("/api/brokers");
+  if (!res.ok) throw new Error("Could not load linked accounts");
+  return res.json() as Promise<{ accounts: ConnectedAccount[] }>;
+}
+
 async function fetchProviders(params: { search?: string; platform?: string; sortBy?: string }) {
   const qs = new URLSearchParams();
   if (params.search) qs.set("search", params.search);
@@ -28,12 +47,21 @@ export function DiscoverView({ user }: { user: any }) {
   const [platform, setPlatform] = useState("");
   const [sortBy, setSortBy] = useState("return");
   const selectProvider = useNavStore((s) => s.selectProvider);
+  const selectBrokerAccount = useNavStore((s) => s.selectBrokerAccount);
+  const setView = useNavStore((s) => s.setView);
   const setAuthOpen = useNavStore((s) => s.setAuthOpen);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["providers", search, platform, sortBy],
     queryFn: () => fetchProviders({ search, platform, sortBy }),
     refetchInterval: 60000,
+  });
+
+  const { data: brokerData, isLoading: accountsLoading } = useQuery({
+    queryKey: ["brokers"],
+    queryFn: fetchConnectedAccounts,
+    enabled: !!user,
+    staleTime: 15_000,
   });
 
   const providers = data?.providers ?? [];
@@ -48,6 +76,48 @@ export function DiscoverView({ user }: { user: any }) {
           </p>
         </div>
       </div>
+
+      {user && (
+        <section className="space-y-3" aria-labelledby="connected-sources-heading">
+          <div>
+            <h2 id="connected-sources-heading" className="text-lg font-semibold">Copy from a connected account</h2>
+            <p className="text-sm text-muted-foreground">
+              If a cTrader Copy strategy is already running on one of your linked accounts, TradeLink can use that account&apos;s open positions as a source for your selected destination accounts.
+            </p>
+          </div>
+          {accountsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Skeleton className="h-36" /><Skeleton className="h-36" /></div>
+          ) : (brokerData?.accounts ?? []).filter((account) => account.status === "connected").length === 0 ? (
+            <Card className="rm-glass border-dashed">
+              <CardContent className="p-6 text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-3">
+                <span>Link an account that receives the trades you want to mirror.</span>
+                <Button variant="outline" size="sm" onClick={() => setView("broker_connections")}>Connect an account</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(brokerData?.accounts ?? []).filter((account) => account.status === "connected").map((account) => (
+                <ConnectedSourceCard
+                  key={account.id}
+                  account={account}
+                  onUseSource={() => {
+                    if (!account.isSelectedForCopy) {
+                      setView("broker_connections");
+                      return;
+                    }
+                    selectBrokerAccount(account.id);
+                    setView("automated_trading");
+                  }}
+                  onEnable={() => setView("broker_connections")}
+                />
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            Public strategy listings and provider statistics are not exposed by cTrader Open API. Browse cTrader Copy for strategies; TradeLink can mirror positions from an account you have connected and authorized.
+          </p>
+        </section>
+      )}
 
       <Card className="rm-glass border-primary/20">
         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -120,7 +190,7 @@ export function DiscoverView({ user }: { user: any }) {
       ) : providers.length === 0 ? (
         <Card className="rm-glass">
           <CardContent className="p-12 text-center text-sm text-muted-foreground">
-            No published provider accounts match your filters. Sample profiles are hidden. Real providers will appear here after their account data is connected and published.
+            No verified public provider profiles are available in the catalog yet. Sample profiles stay hidden. Connect an account that is already receiving copied trades above to mirror its live positions, or browse cTrader Copy for public strategies.
           </CardContent>
         </Card>
       ) : (
@@ -131,6 +201,57 @@ export function DiscoverView({ user }: { user: any }) {
         </div>
       )}
     </div>
+  );
+}
+
+function ConnectedSourceCard({ account, onUseSource, onEnable }: {
+  account: ConnectedAccount;
+  onUseSource: () => void;
+  onEnable: () => void;
+}) {
+  const positionsQuery = useQuery({
+    queryKey: ["broker-positions", account.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/brokers/${account.id}/positions`);
+      if (!response.ok) throw new Error("Positions unavailable");
+      return response.json() as Promise<{ livePositions?: Array<{ instrument?: string; symbol?: string; direction?: string; side?: string }> }>;
+    },
+    enabled: account.status === "connected",
+    retry: false,
+    staleTime: 15_000,
+  });
+  const positions = positionsQuery.data?.livePositions ?? [];
+  const brokerName = account.brokerCode === "ctrader" ? "cTrader" : account.brokerCode.toUpperCase();
+
+  return (
+    <Card className="rm-glass">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">{account.accountLabel}</div>
+            <div className="text-xs text-muted-foreground">{brokerName} · {account.isDemo ? "Demo" : "Live"} · {account.currency}</div>
+          </div>
+          <Badge variant="outline" className="text-[10px]">Connected</Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div><div className="rm-label">Balance</div><div className="font-mono">{formatNumber(account.balance, 2)} {account.currency}</div></div>
+          <div><div className="rm-label">Equity</div><div className="font-mono">{formatNumber(account.equity, 2)} {account.currency}</div></div>
+        </div>
+        <div className="border-t border-border pt-2 text-xs">
+          <div className="font-medium">Open positions to mirror</div>
+          {positionsQuery.isLoading ? <div className="text-muted-foreground mt-1">Checking linked account…</div> : positionsQuery.isError ? (
+            <div className="text-muted-foreground mt-1">Position snapshot unavailable right now.</div>
+          ) : positions.length === 0 ? (
+            <div className="text-muted-foreground mt-1">No open source positions detected.</div>
+          ) : (
+            <div className="mt-1 text-muted-foreground">{positions.length} open · {positions.slice(0, 3).map((position) => `${position.instrument ?? position.symbol ?? "Position"} ${position.direction ?? position.side ?? ""}`).join(" · ")}</div>
+          )}
+        </div>
+        <Button className="w-full" variant={account.isSelectedForCopy ? "outline" : "secondary"} size="sm" onClick={account.isSelectedForCopy ? onUseSource : onEnable}>
+          {account.isSelectedForCopy ? "Use as replication source" : "Enable this account for copying"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -16,16 +16,29 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    const isLiveMode = allAccounts.some((a) => !a.isDemo && a.status === "connected");
+    // OAuth callbacks can race when a provider returns several accounts. Keep
+    // the newest row for each real broker account while legacy rows are cleaned.
+    const byExternalAccount = new Map<string, (typeof allAccounts)[number]>();
+    for (const account of allAccounts) {
+      const externalId = account.externalAccountId?.trim();
+      const key = externalId
+        ? `${account.brokerCode}:${externalId.toLowerCase()}`
+        : `local:${account.id}`;
+      const current = byExternalAccount.get(key);
+      if (!current || account.updatedAt > current.updatedAt) byExternalAccount.set(key, account);
+    }
+    const accounts = [...byExternalAccount.values()];
+
+    const isLiveMode = accounts.some((a) => !a.isDemo && a.status === "connected");
     const summary = {
-      total: allAccounts.length,
-      connected: allAccounts.filter((a) => a.status === "connected").length,
-      selectedForCopy: allAccounts.filter((a) => a.isSelectedForCopy).length,
-      demo: allAccounts.filter((a) => a.isDemo).length,
-      live: allAccounts.filter((a) => !a.isDemo).length,
+      total: accounts.length,
+      connected: accounts.filter((a) => a.status === "connected").length,
+      selectedForCopy: accounts.filter((a) => a.isSelectedForCopy).length,
+      demo: accounts.filter((a) => a.isDemo).length,
+      live: accounts.filter((a) => !a.isDemo).length,
     };
 
-    return NextResponse.json({ accounts: redactSecrets(allAccounts), isLiveMode, summary });
+    return NextResponse.json({ accounts: redactSecrets(accounts), isLiveMode, summary });
   } catch (e: any) {
     if (e.message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json({ error: e.message }, { status: 500 });

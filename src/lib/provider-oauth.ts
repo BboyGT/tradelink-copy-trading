@@ -108,6 +108,8 @@ async function persistAccount(input: {
   userId: string; provider: OAuthProvider; accountId: string; label: string; currency?: string;
   balance?: number; equity?: number; isDemo: boolean; auth: Record<string, unknown>;
 }) {
+  const externalAccountId = input.accountId.trim();
+  if (!externalAccountId) throw new Error("The broker did not return an account ID.");
   const authRef = encrypt(JSON.stringify(input.auth));
   const data = {
     accountLabel: input.label.slice(0, 80), currency: input.currency || "USD",
@@ -115,12 +117,20 @@ async function persistAccount(input: {
     equity: Number.isFinite(input.equity) ? input.equity! : (Number.isFinite(input.balance) ? input.balance! : 0),
     isDemo: input.isDemo, status: "connected", authMethod: "oauth", authRef,
     lastSyncedAt: new Date(),
-    externalAccountId: input.accountId,
+    externalAccountId,
     tokenExpiresAt: typeof input.auth.expiresAt === "number" ? new Date(input.auth.expiresAt) : null,
   };
-  const existing = await db.brokerAccount.findFirst({ where: { userId: input.userId, brokerCode: input.provider, externalAccountId: input.accountId } });
-  if (existing) return db.brokerAccount.update({ where: { id: existing.id }, data });
-  return db.brokerAccount.create({ data: { userId: input.userId, brokerCode: input.provider, ...data } });
+  return db.brokerAccount.upsert({
+    where: {
+      userId_brokerCode_externalAccountId: {
+        userId: input.userId,
+        brokerCode: input.provider,
+        externalAccountId,
+      },
+    },
+    update: data,
+    create: { userId: input.userId, brokerCode: input.provider, ...data },
+  });
 }
 
 async function exchangeToken(provider: OAuthProvider, code: string, context: OAuthContext, origin: string) {

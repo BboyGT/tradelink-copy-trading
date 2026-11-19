@@ -390,6 +390,8 @@ model BrokerAccount {
   riskConfigs    RiskConfig[]
   auditEvents    AuditEvent[]
   terminalBridge TerminalBridge?
+
+  @@unique([userId, brokerCode, externalAccountId], map: "BrokerAccount_user_broker_external_unique")
 }
 
 model TerminalBridge {

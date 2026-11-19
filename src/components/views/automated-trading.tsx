@@ -148,8 +148,9 @@ function brokerDisplay(code?: string) {
 export function AutomatedTradingView({ user }: { user: any }) {
   const setView = useNavStore((s) => s.setView);
   const setAuthOpen = useNavStore((s) => s.setAuthOpen);
+  const selectedBrokerAccountId = useNavStore((s) => s.selectedBrokerAccountId);
   const queryClient = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(() => Boolean(selectedBrokerAccountId));
 
   const { data, isLoading } = useQuery({
     queryKey: ["replication"],
@@ -642,8 +643,18 @@ function CreateReplicationWizard({
   onConnectBroker: () => void;
 }) {
   const { toast } = useToast();
+  const selectedBrokerAccountId = useNavStore((s) => s.selectedBrokerAccountId);
+  const selectBrokerAccount = useNavStore((s) => s.selectBrokerAccount);
   const [state, setState] = useState<WizardState>(INITIAL_WIZARD);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !selectedBrokerAccountId) return;
+    // Discover can preselect a connected, copy-enabled account as the source.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- One-shot wizard prefill from the user's explicit Discover action.
+    setState((previous) => ({ ...previous, step: 1, sourceAccountId: selectedBrokerAccountId, destinationAccountId: "" }));
+    selectBrokerAccount(null);
+  }, [open, selectedBrokerAccountId, selectBrokerAccount]);
 
   useEffect(() => {
     if (!open) return;
