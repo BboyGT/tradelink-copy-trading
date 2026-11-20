@@ -189,6 +189,7 @@ export function calculateMirrorVolume(
   riskPerTradePct: number = 1,
   tickSize: number = 0,
   tickValue: number = 0,
+  riskReferenceCapital: number = destinationEquity,
 ): number {
   if (event.type === "close") return 0;
 
@@ -220,7 +221,7 @@ export function calculateMirrorVolume(
       // closed when that metadata or a source stop is unavailable.
       if (event.stopLoss && event.entryPrice && riskPerTradePct > 0 && tickSize > 0 && tickValue > 0) {
         const slDistance = Math.abs(event.entryPrice - event.stopLoss);
-        const riskAmount = destinationEquity * riskPerTradePct / 100;
+        const riskAmount = riskReferenceCapital * riskPerTradePct / 100;
         const riskPerLot = (slDistance / tickSize) * tickValue;
         destVolume = slDistance > 0 && riskPerLot > 0 ? riskAmount / riskPerLot : 0;
       }

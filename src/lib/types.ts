@@ -388,7 +388,7 @@ export type SizingMode =
   | "risk_based";
 
 export const SIZING_MODE_LABELS: Record<SizingMode, string> = {
-  equity_ratio: "Equity ratio",
+  equity_ratio: "Match source percentage",
   fixed_multiplier: "Fixed multiplier",
   fixed_lot: "Fixed lot",
   risk_based: "Risk-based volume",

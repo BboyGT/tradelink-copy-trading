@@ -188,7 +188,12 @@ export async function POST(req: NextRequest) {
                 let stake = event.volume;
                 if (config.sizingMode === "fixed_lot") stake = config.fixedLotSize ?? 0;
                 else if (config.sizingMode === "fixed_multiplier") stake *= config.equityMultiplier;
-                else if (config.sizingMode === "risk_based") stake = destAccount.equity * (config.riskPerTradePct ?? 1) / 100;
+                else if (config.sizingMode === "risk_based") {
+                  const riskBase = config.riskReferenceBase === "balance" ? destAccount.balance
+                    : config.riskReferenceBase === "fixed_capital" ? (config.fixedReferenceCapital ?? destAccount.equity)
+                    : destAccount.equity;
+                  stake = riskBase * (config.riskPerTradePct ?? 1) / 100;
+                }
                 else stake = sourceInfo.equity > 0 ? stake * (destAccount.equity / sourceInfo.equity) * config.equityMultiplier : 0;
                 if (config.maxLotSize != null) stake = Math.min(stake, config.maxLotSize);
                 stake = Math.floor(stake * 100 + 1e-8) / 100;
@@ -283,12 +288,15 @@ export async function POST(req: NextRequest) {
               const minVolume = Math.max(destSpec.minVolume, config.minLotSize ?? destSpec.minVolume);
               const maxVolume = Math.min(destSpec.maxVolume, config.maxLotSize ?? destSpec.maxVolume);
               if (maxVolume < minVolume) { totalErrors++; continue; }
+              const riskReferenceCapital = config.riskReferenceBase === "balance" ? destAccount.balance
+                : config.riskReferenceBase === "fixed_capital" ? (config.fixedReferenceCapital ?? destAccount.equity)
+                : destAccount.equity;
               const mirrorVolume = calculateMirrorVolume(
                 event, sourceInfo.equity, destAccount.equity,
                 config.sizingMode as any, config.equityMultiplier,
                 config.fixedLotSize ?? undefined, minVolume, maxVolume, destSpec.volumeStep,
                 sourceSpec.contractSize / destSpec.contractSize,
-                config.riskPerTradePct ?? 1, destSpec.tickSize, destSpec.tickValue,
+                config.riskPerTradePct ?? 1, destSpec.tickSize, destSpec.tickValue, riskReferenceCapital,
               );
               if (mirrorVolume <= 0) continue;
 

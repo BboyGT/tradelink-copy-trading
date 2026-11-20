@@ -442,17 +442,20 @@ export function SettingsView({ user }: { user: any }) {
                   </div>
                   <Separator />
                   <div className="space-y-1">
-                    <Label className="text-xs">Default sizing mode for new replications</Label>
+                    <Label className="text-xs">Default position sizing for new replications</Label>
                     <select
                       value={settings.defaultSizingMode}
                       onChange={(e) => setSettings((prev) => ({ ...prev, defaultSizingMode: e.target.value }))}
                       className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm font-mono uppercase tracking-wider text-white focus-visible:border-primary/40 focus-visible:ring-primary/20 focus-visible:ring-[3px] outline-none"
                     >
-                      <option value="equity_ratio">Equity ratio</option>
+                      <option value="equity_ratio">Proportional (match source percentage)</option>
                       <option value="fixed_multiplier">Fixed multiplier</option>
                       <option value="fixed_lot">Fixed lot</option>
                       <option value="risk_based">Risk-based</option>
                     </select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Choose “Proportional” for your example. At 1.0×, a 10% source loss targets about a 10% loss on each destination. The same formula applies to supported personal or prop-firm MT4/MT5 accounts. Actual results vary with leverage, contract rules, lot minimums, fees, and slippage. This default affects new replications; change copy intensity per replication in its setup.
+                    </p>
                   </div>
                   <Separator />
                   <div className="space-y-1">
@@ -470,7 +473,7 @@ export function SettingsView({ user }: { user: any }) {
                   </div>
                   <Separator />
                   <div className="space-y-1">
-                    <Label className="text-xs">Default risk reference</Label>
+                    <Label className="text-xs">Risk-based sizing reference</Label>
                     <select
                       value={settings.defaultRiskReferenceBase}
                       onChange={(e) => setSettings((prev) => ({ ...prev, defaultRiskReferenceBase: e.target.value }))}
@@ -480,7 +483,7 @@ export function SettingsView({ user }: { user: any }) {
                       <option value="balance">Balance</option>
                       <option value="fixed_capital">Fixed capital</option>
                     </select>
-                    <p className="text-[10px] text-muted-foreground">Used by new risk-based replication configurations.</p>
+                    <p className="text-[10px] text-muted-foreground">Used by new risk-based configurations. Proportional sizing always compares the source and destination account equity.</p>
                   </div>
                   <Button onClick={savePreferences} disabled={savingPrefs}>
                     {savingPrefs ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}

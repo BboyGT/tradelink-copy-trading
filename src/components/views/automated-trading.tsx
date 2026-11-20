@@ -850,6 +850,8 @@ function CreateReplicationWizard({
               fixedLotSize={state.fixedLotSize}
               riskPerTradePct={state.riskPerTradePct}
               derivOptions={sourceAccount?.brokerCode === "deriv" && destinationAccount?.brokerCode === "deriv"}
+              sourceAccount={sourceAccount}
+              destinationAccount={destinationAccount}
               onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
             />
           )}
@@ -1136,9 +1138,9 @@ interface SizingOption {
 const SIZING_OPTIONS: SizingOption[] = [
   {
     mode: "equity_ratio",
-    title: "Mirror ratio",
+    title: "Match source percentage",
     description:
-      "Copy trades proportionally to your account size. If you have $1,000 and the source has $10,000, trades will be 1/10th the size.",
+      "Match the source account's percentage gains and losses. The position size scales automatically to each destination's equity. Start at 1.0× for equivalent percentage exposure.",
     icon: Scale,
   },
   {
@@ -1156,9 +1158,9 @@ const SIZING_OPTIONS: SizingOption[] = [
   },
   {
     mode: "risk_based",
-    title: "Risk-based",
+    title: "Risk % per trade",
     description:
-      "Size trades based on how much you're willing to risk per trade.",
+      "Size from a percentage of destination equity and the source trade's stop-loss. The trade is skipped if required stop or broker sizing data is missing.",
     icon: Target,
   },
 ];
@@ -1169,6 +1171,8 @@ function StepSizing({
   fixedLotSize,
   riskPerTradePct,
   derivOptions,
+  sourceAccount,
+  destinationAccount,
   onChange,
 }: {
   mode: SizingMode;
@@ -1176,6 +1180,8 @@ function StepSizing({
   fixedLotSize: number;
   riskPerTradePct: number;
   derivOptions: boolean;
+  sourceAccount?: BrokerAccount;
+  destinationAccount?: BrokerAccount;
   onChange: (
     patch: Partial<Pick<WizardState, "sizingMode" | "equityMultiplier" | "fixedLotSize" | "riskPerTradePct">>,
   ) => void;
@@ -1238,7 +1244,7 @@ function StepSizing({
         {mode === "equity_ratio" && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="rm-label">Multiplier</label>
+              <label className="rm-label">Copy intensity</label>
               <span className="text-sm font-mono tnum text-primary">
                 {equityMultiplier.toFixed(1)}×
               </span>
@@ -1255,8 +1261,22 @@ function StepSizing({
               <span>10×</span>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Destination volume = source volume × (dest equity / source equity) × multiplier.
+              Destination volume = source volume × (destination equity ÷ source equity) × copy intensity. At 1.0×, both accounts target the same percentage exposure.
             </p>
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-[11px] leading-relaxed">
+              <div className="font-medium text-foreground">Example at 1.0×</div>
+              <p className="mt-1 text-muted-foreground">
+                $100 source → $10 destination: a $10 source loss (−10%) targets about a $1 destination loss; a $100 source gain (+100%) targets about +$10. With a $10,000 destination, that +100% move targets about +$10,000.
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                This same sizing formula applies to connected personal and prop-firm MT4/MT5 accounts. It does not guarantee equal cash results: leverage, contract specifications, lot steps, fees, slippage, and prop-firm rules affect the fill and P/L.
+              </p>
+              {sourceAccount && destinationAccount && sourceAccount.equity > 0 && destinationAccount.equity > 0 && sourceAccount.currency === destinationAccount.currency && (
+                <p className="mt-2 font-mono text-primary">
+                  Current equity ratio: {(destinationAccount.equity / sourceAccount.equity * equityMultiplier).toFixed(3)}× source volume before broker contract conversion.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -1304,7 +1324,7 @@ function StepSizing({
 
         {mode === "risk_based" && (
           <div className="space-y-2">
-            <label className="rm-label">Risk per trade (%)</label>
+            <label className="rm-label">Maximum planned loss (% of destination equity)</label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -1321,7 +1341,7 @@ function StepSizing({
             </div>
             <p className="text-[11px] text-warning flex items-center gap-1.5">
               <AlertTriangle className="h-3 w-3 shrink-0" />
-              Requires stop-loss on source trades.
+              Requires a source stop-loss. This sizes each position; it does not enforce the prop firm&apos;s daily or total drawdown rules.
             </p>
           </div>
         )}
